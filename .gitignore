@@ -1,0 +1,4 @@
+.idea/
+__pycache__/
+all_subscriptions_bot/token.py
+db.sqlite3
