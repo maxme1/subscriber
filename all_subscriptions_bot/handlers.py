@@ -14,7 +14,8 @@ def send_welcome(message: Message):
         track_youtube(message.chat.id, message.text.partition(' ')[-1])
     except BaseException:
         bot.reply_to(message, 'Something bad happened')
-    bot.reply_to(message, 'Done')
+    else:
+        bot.reply_to(message, 'Done')
 
 
 def notify(user):

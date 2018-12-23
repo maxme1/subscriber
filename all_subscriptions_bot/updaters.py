@@ -29,6 +29,7 @@ def update_youtube(channel: Channel):
     channel.last_updated = datetime.now()
     channel.save()
 
+    count = 0
     for post in feedparser.parse(channel.url)['entries']:
         try:
             ChannelPost(
@@ -36,16 +37,22 @@ def update_youtube(channel: Channel):
                 image_url=post['media_thumbnail'][0]['url'], description=post['summary'],
                 channel=channel
             ).save()
+            count += 1
         except peewee.IntegrityError:
             pass
+
+    return count
 
 
 UPDATERS = {'YouTube': update_youtube}
 
 
 def update_base(update_delta):
+    count = 0
     for channel in Channel.select().where(Channel.last_updated <= datetime.now() - update_delta):
-        UPDATERS[channel.type](channel)
+        count += UPDATERS[channel.type](channel)
+
+    return count
 
 
 @atomic
