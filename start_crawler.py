@@ -1,9 +1,13 @@
+import argparse
 import time
 from datetime import timedelta
 
 from all_subscriptions_bot.updaters import update_base
 
-UPDATE_DELTA = timedelta(hours=1)
+parser = argparse.ArgumentParser()
+parser.add_argument('hours', type=float)
+args = parser.parse_args()
+UPDATE_DELTA = timedelta(hours=args.hours)
 
 while True:
     print('new posts', update_base(UPDATE_DELTA))
