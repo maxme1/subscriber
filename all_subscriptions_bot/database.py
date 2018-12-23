@@ -3,7 +3,6 @@ from datetime import datetime
 from peewee import *
 
 DATABASE = SqliteDatabase('db.sqlite3')
-DEFAULT_DATE = datetime(year=2000, month=1, day=1)
 
 
 class Channel(Model):
@@ -11,7 +10,7 @@ class Channel(Model):
 
     name = CharField()
     url = CharField(max_length=1000, unique=True)
-    last_updated = DateTimeField(default=DEFAULT_DATE)
+    last_updated = DateTimeField(default=datetime.now)
     type = CharField(choices=tuple(enumerate(TYPES)))
 
     class Meta:
@@ -24,7 +23,7 @@ class Channel(Model):
 class User(Model):
     identifier = CharField(unique=True)
     channels = ManyToManyField(Channel, backref='users')
-    last_updated = DateTimeField(default=DEFAULT_DATE)
+    last_updated = DateTimeField(default=datetime.now)
 
     class Meta:
         database = DATABASE

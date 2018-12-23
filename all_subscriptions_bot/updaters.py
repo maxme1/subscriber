@@ -58,8 +58,8 @@ def update_base(update_delta):
 @atomic
 def get_new_posts(user: User) -> Iterable[ChannelPost]:
     for channel in user.channels:
-        for post in ChannelPost.select().where(
-                ChannelPost.channel == channel).where(ChannelPost.created > user.last_updated):
+        for post in ChannelPost.select().where(ChannelPost.channel == channel).where(
+                ChannelPost.created > user.last_updated).order_by(ChannelPost.created):
             yield post
             user.last_updated = post.created
             user.save()
