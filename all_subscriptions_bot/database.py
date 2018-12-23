@@ -37,7 +37,7 @@ UserChannels = User.channels.get_through_model()
 
 
 class ChannelPost(Model):
-    identifier = CharField()
+    identifier = CharField(unique=True)
     title = CharField()
     url = CharField()
 
