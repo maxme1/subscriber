@@ -10,5 +10,5 @@ args = parser.parse_args()
 UPDATE_DELTA = timedelta(hours=args.hours)
 
 while True:
-    print('new posts', update_base(UPDATE_DELTA))
+    update_base(UPDATE_DELTA)
     time.sleep(UPDATE_DELTA.total_seconds())

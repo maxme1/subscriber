@@ -8,12 +8,12 @@ bot = telebot.TeleBot(token.token)
 handler = bot.message_handler
 
 
-@handler(commands=['add'])
-def send_welcome(message: Message):
+@handler(commands=['youtube'])
+def youtube(message: Message):
     try:
         track_youtube(message.chat.id, message.text.partition(' ')[-1])
-    except BaseException:
-        bot.reply_to(message, 'Something bad happened')
+    except BaseException as e:
+        bot.reply_to(message, str(e))
     else:
         bot.reply_to(message, 'Done')
 
