@@ -33,13 +33,15 @@ class Channel(Model):
         return self.name
 
     @atomic
-    def trigger_update(self):
+    def trigger_update(self, created=None):
         self.last_updated = datetime.now()
         self.save()
 
         updater = getattr(self, '_update_' + self.type.lower())
         for post in updater():
             try:
+                if created is not None:
+                    post.created = created
                 post.save()
             except IntegrityError:
                 pass

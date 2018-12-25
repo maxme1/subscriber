@@ -11,13 +11,11 @@ def tracker(func):
     @atomic
     def wrapper(user_id, *args, **kwargs):
         channel, created = func(*args, **kwargs)
-        if created:
-            channel.save()
-            channel.trigger_update()
+        user, _ = User.get_or_create(identifier=user_id)
 
-        user, created = User.get_or_create(identifier=user_id)
         if created:
-            user.save()
+            channel.trigger_update(user.last_updated)
+
         try:
             user.channels.add(channel)
         except peewee.IntegrityError:

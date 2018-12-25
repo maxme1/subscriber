@@ -3,6 +3,7 @@ from typing import Iterable
 
 from .database import Channel, ChannelPost, User
 
+
 def update_base(update_delta):
     for channel in Channel.select().where(Channel.last_updated <= datetime.now() - update_delta):
         channel.trigger_update()
