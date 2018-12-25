@@ -1,10 +1,14 @@
 from datetime import datetime
 
 import feedparser
+import requests
+from lxml import html
 from peewee import *
 
 DATABASE_PATH = 'db.sqlite3'
 DATABASE = SqliteDatabase(DATABASE_PATH)
+REQUEST_HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 '
+                                 '(KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
 
 
 def atomic(func):
@@ -16,9 +20,8 @@ def atomic(func):
 
 
 class Channel(Model):
-    TYPES = ['YouTube']
+    TYPES = ['YouTube', 'vk']
 
-    name = CharField()
     url = CharField(max_length=1000, unique=True)
     last_updated = DateTimeField(default=datetime.now)
     type = CharField(choices=tuple(enumerate(TYPES)))
@@ -31,22 +34,27 @@ class Channel(Model):
 
     @atomic
     def trigger_update(self):
-        updater = getattr(self, '_update_' + self.type.lower())
-        updater()
-
-    def _update_youtube(self):
         self.last_updated = datetime.now()
         self.save()
 
-        for post in feedparser.parse(self.url)['entries']:
+        updater = getattr(self, '_update_' + self.type.lower())
+        for post in updater():
             try:
-                ChannelPost(
-                    identifier=post['id'], title=post['title'], url=post['link'],
-                    image_url=post['media_thumbnail'][0]['url'], description=post['summary'],
-                    channel=self
-                ).save()
+                post.save()
             except IntegrityError:
                 pass
+
+    def _update_youtube(self):
+        for post in reversed(feedparser.parse(self.url)['entries']):
+            yield ChannelPost(identifier=post['id'], url=post['link'], channel=self)
+
+    def _update_vk(self):
+        doc = html.fromstring(requests.get(self.url, headers=REQUEST_HEADERS).content)
+        for element in reversed(doc.cssselect('.wall_post_cont')):
+            i = element.attrib.get('id', '')
+            if i.startswith('wpt-'):
+                i = i[4:]
+                yield ChannelPost(identifier=i, url=f'https://vk.com/wall-{i}', channel=self)
 
 
 class User(Model):
@@ -65,14 +73,12 @@ UserChannels = User.channels.get_through_model()
 
 
 class ChannelPost(Model):
-    identifier = CharField(unique=True)
-    url = CharField()
-    # title = CharField()
-    # image_url = CharField(null=True)
-    # description = TextField(null=True)
+    identifier = CharField()
+    url = CharField(unique=True)
 
     channel = ForeignKeyField(Channel)
     created = DateTimeField(default=datetime.now)
 
     class Meta:
         database = DATABASE
+        indexes = (('identifier', 'channel_id'), True),

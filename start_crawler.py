@@ -2,7 +2,7 @@ import argparse
 import time
 from datetime import timedelta
 
-from all_subscriptions_bot.updaters import update_base
+from all_subscriptions_bot.utils import update_base
 
 parser = argparse.ArgumentParser()
 parser.add_argument('hours', type=float)

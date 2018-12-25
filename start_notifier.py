@@ -2,7 +2,7 @@ import time
 import argparse
 
 from all_subscriptions_bot.database import User
-from all_subscriptions_bot.handlers import notify
+from all_subscriptions_bot.bot import notify
 
 parser = argparse.ArgumentParser()
 parser.add_argument('seconds', type=float)

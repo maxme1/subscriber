@@ -1,7 +1,8 @@
 import telebot
 from telebot.types import Message
 
-from .updaters import track_youtube, get_new_posts
+from .utils import get_new_posts
+from .trackers import track_youtube
 from . import token
 
 bot = telebot.TeleBot(token.token)

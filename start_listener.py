@@ -1,3 +1,3 @@
-from all_subscriptions_bot.handlers import bot
+from all_subscriptions_bot.bot import bot
 
 bot.polling()
