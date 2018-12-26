@@ -20,8 +20,9 @@ def atomic(func):
 
 
 class Channel(Model):
-    TYPES = ['YouTube', 'vk']
+    TYPES = ['youtube', 'vk']
 
+    # TODO: channel url is not always request url
     url = CharField(max_length=1000, unique=True)
     last_updated = DateTimeField(default=datetime.now)
     type = CharField(choices=tuple(enumerate(TYPES)))
@@ -37,7 +38,7 @@ class Channel(Model):
         self.last_updated = datetime.now()
         self.save()
 
-        updater = getattr(self, '_update_' + self.type.lower())
+        updater = getattr(self, '_update_' + self.type)
         for post in updater():
             try:
                 if created is not None:
