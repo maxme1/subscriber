@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 import telebot
 from telebot.types import Message
 
-from .utils import get_new_posts
+from .utils import get_new_posts, URL_REGEX
 from .trackers import TRACKERS, DOMAIN_TO_TYPE
 from . import token
 
@@ -34,19 +34,19 @@ def youtube(message: Message):
     run_tracker(message, *parts)
 
 
-# TODO: url regex?
-@handler(func=lambda m: len(m.text.strip().split()) == 1)
+@handler(regexp=URL_REGEX)
 def link(message: Message):
-    url = message.text.strip()
+    url = message.text.strip().lower()
     parts = urlparse(url)
 
-    assert parts.scheme in ['http', 'https']
     domain = '.'.join(parts.netloc.split('.')[-2:])
+    if domain not in DOMAIN_TO_TYPE:
+        return bot.reply_to(message, f'Unknown domain: {domain}')
 
     run_tracker(message, DOMAIN_TO_TYPE[domain], url)
 
 
-@handler(func=lambda m: True)
+@handler(content_types=None)
 def fallback(message: Message):
     bot.reply_to(message, 'Unknown command')
 

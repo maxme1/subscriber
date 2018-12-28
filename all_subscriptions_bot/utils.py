@@ -1,7 +1,18 @@
+import re
 from datetime import datetime
 from typing import Iterable
 
 from .database import Channel, ChannelPost, User
+
+URL_REGEX = (
+    r'^(?:http|ftp)s?://'  # http:// or https://
+    r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'  # domain...
+    r'localhost|'  # localhost...
+    r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+    r'(?::\d+)?'  # optional port
+    r'(?:/?|[/?]\S+)$'
+)
+URL_PATTERN = re.compile(URL_REGEX, flags=re.IGNORECASE)
 
 
 def update_base(update_delta):
