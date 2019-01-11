@@ -1,5 +1,6 @@
 import re
 from collections import Counter
+from urllib.parse import urlparse
 
 import feedparser
 import peewee
@@ -8,7 +9,7 @@ import requests
 
 from .database import Channel, atomic, User, REQUEST_HEADERS
 
-VK = re.compile(r'vk.com/(\w+)')
+group_name = re.compile(r'^/(\w+)$', flags=re.IGNORECASE)
 
 
 def tracker(func):
@@ -41,8 +42,11 @@ def track_youtube(url):
 
 @tracker
 def track_vk(url):
-    name = VK.match(url).group(1)
-    assert name, name
+    path = urlparse(url).path
+    name = group_name.match(path)
+    if not name:
+        raise ValueError(f'{path} is not a valid channel name.')
+    name = name.group(1)
     return Channel.get_or_create(channel_url=url, update_url=url, name=name, type='vk')
 
 
