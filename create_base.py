@@ -1,6 +1,6 @@
 import os
 
-from all_subscriptions_bot.database import *
+from subscriber.database import *
 
 if os.path.exists(DATABASE_PATH):
     os.remove(DATABASE_PATH)

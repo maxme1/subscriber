@@ -3,11 +3,11 @@ import time
 import argparse
 from threading import Thread
 
-from all_subscriptions_bot.utils import update_base
-from all_subscriptions_bot.bot import make_updater, notify
-from all_subscriptions_bot.database import User
+from subscriber.utils import update_base
+from subscriber.bot import make_updater, notify
+from subscriber.database import User
 # TODO: move to getpass
-from all_subscriptions_bot.token import token
+from subscriber.token import token
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--crawler', default=1, type=float, help='Crawler interval (hours)')
@@ -16,6 +16,7 @@ args = parser.parse_args()
 UPDATE_DELTA = timedelta(hours=args.crawler)
 
 
+# TODO: add a scheduler
 def crawler():
     while True:
         update_base(UPDATE_DELTA)
