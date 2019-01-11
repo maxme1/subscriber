@@ -1,14 +1,18 @@
+import re
 from collections import Counter
 
+import feedparser
 import peewee
 from lxml import html
 import requests
 
 from .database import Channel, atomic, User, REQUEST_HEADERS
 
+VK = re.compile(r'vk.com/(\w+)')
+
 
 def tracker(func):
-    @atomic
+    @atomic()
     def wrapper(user_id, *args, **kwargs):
         channel, created = func(*args, **kwargs)
         user, _ = User.get_or_create(identifier=user_id)
@@ -29,13 +33,17 @@ def tracker(func):
 def track_youtube(url):
     doc = html.fromstring(requests.get(url, headers=REQUEST_HEADERS).content)
     channel_id = Counter(doc.xpath('//@data-channel-external-id')).most_common(1)[0][0]
-    url = f'https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}'
-    return Channel.get_or_create(url=url, type='youtube')
+    update_url = f'https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}'
+
+    name = feedparser.parse(update_url)['feed']['title']
+    return Channel.get_or_create(update_url=update_url, name=name, type='youtube', defaults={'channel_url': url})
 
 
 @tracker
 def track_vk(url):
-    return Channel.get_or_create(url=url, type='vk')
+    name = VK.match(url).group(1)
+    assert name, name
+    return Channel.get_or_create(channel_url=url, update_url=url, name=name, type='vk')
 
 
 TRACKERS = {

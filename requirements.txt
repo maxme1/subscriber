@@ -3,4 +3,4 @@ cssselect
 requests
 feedparser
 peewee
-pyTelegramBotAPI
+python-telegram-bot

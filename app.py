@@ -4,8 +4,10 @@ import argparse
 from threading import Thread
 
 from all_subscriptions_bot.utils import update_base
-from all_subscriptions_bot.bot import bot, notify
+from all_subscriptions_bot.bot import make_updater, notify
 from all_subscriptions_bot.database import User
+# TODO: move to getpass
+from all_subscriptions_bot.token import token
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--crawler', default=1, type=float, help='Crawler interval (hours)')
@@ -23,11 +25,12 @@ def crawler():
 def notifier():
     while True:
         for user in User.select():
-            notify(user)
+            notify(updater.bot, user)
 
         time.sleep(args.notifier)
 
 
+updater = make_updater(token)
 Thread(target=crawler).start()
 Thread(target=notifier).start()
-bot.polling()
+updater.start_polling()

@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from typing import Iterable
 
-from .database import Channel, ChannelPost, User
+from .database import Channel, ChannelPost, User, atomic
 
 URL_REGEX = (
     r'^(?:http|ftp)s?://'  # http:// or https://
@@ -20,6 +20,7 @@ def update_base(update_delta):
         channel.trigger_update()
 
 
+@atomic()
 def get_new_posts(user: User) -> Iterable[ChannelPost]:
     last_updated = user.last_updated
 
@@ -32,3 +33,17 @@ def get_new_posts(user: User) -> Iterable[ChannelPost]:
     if last_updated > user.last_updated:
         user.last_updated = last_updated
         user.save()
+
+
+def get_channels(user_id) -> Iterable[Channel]:
+    user, _ = User.get_or_create(identifier=user_id)
+    return user.channels
+
+
+@atomic()
+def remove_channel(user_id, channel_pk):
+    user = User.get(identifier=user_id)
+    channel = Channel.get(id=channel_pk)
+    user.channels.remove(channel)
+    user.save()
+    return channel
