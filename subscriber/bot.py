@@ -82,7 +82,7 @@ def on_error(bot, update, error):
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 REQUEST_KWARGS = {
-    'proxy_url': 'https://195.222.106.135:42374/',
+    # 'proxy_url': 'https://195.222.106.135:42374/',
 }
 
 
