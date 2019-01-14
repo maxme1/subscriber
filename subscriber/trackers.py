@@ -32,7 +32,7 @@ def tracker(func):
 
 @tracker
 def track_youtube(url):
-    doc = html.fromstring(requests.get(url, headers=REQUEST_HEADERS).content)
+    doc = html.fromstring(requests.get(url).content)
     channel_ids = Counter([d.attrib['content'] for d in doc.xpath('//meta[@itemprop="channelId"]')]).most_common(1)
     if not channel_ids:
         raise ValueError('This not a valid youtube channel.')
