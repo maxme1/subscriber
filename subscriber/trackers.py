@@ -33,7 +33,7 @@ def tracker(func):
 @tracker
 def track_youtube(url):
     doc = html.fromstring(requests.get(url, headers=REQUEST_HEADERS).content)
-    channel_id = Counter(doc.xpath('//@data-channel-external-id')).most_common(1)[0][0]
+    channel_id = Counter([d.attrib['content'] for d in doc.xpath('//meta[@itemprop="channelId"]')]).most_common(1)[0][0]
     update_url = f'https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}'
 
     name = feedparser.parse(update_url)['feed']['title']
