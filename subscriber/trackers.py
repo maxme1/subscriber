@@ -7,7 +7,7 @@ import peewee
 from lxml import html
 import requests
 
-from .database import Channel, atomic, User, REQUEST_HEADERS
+from .database import Channel, atomic, User
 
 group_name = re.compile(r'^/(\w+)$', flags=re.IGNORECASE)
 
@@ -54,12 +54,24 @@ def track_vk(url):
     return Channel.get_or_create(channel_url=url, update_url=url, name=name, type='vk')
 
 
+@tracker
+def track_twitter(url):
+    path = urlparse(url).path
+    name = group_name.match(path)
+    if not name:
+        raise ValueError(f'{path} is not a valid channel name.')
+    name = name.group(1)
+    return Channel.get_or_create(channel_url=url, update_url=url, name=name, type='twitter')
+
+
 TRACKERS = {
+    'twitter': track_twitter,
     'youtube': track_youtube,
     'vk': track_vk,
 }
 
 DOMAIN_TO_TYPE = {
+    'twitter.com': 'twitter',
     'youtube.com': 'youtube',
     'vk.com': 'vk',
 }

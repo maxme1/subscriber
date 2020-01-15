@@ -4,8 +4,7 @@ import argparse
 from threading import Thread
 
 from subscriber.utils import update_base
-from subscriber.bot import make_updater, notify
-from subscriber.database import User
+from subscriber.bot import make_updater
 # TODO: move to getpass
 from subscriber.token import token
 
@@ -23,15 +22,6 @@ def crawler():
         time.sleep(UPDATE_DELTA.total_seconds())
 
 
-def notifier():
-    while True:
-        for user in User.select():
-            notify(updater.bot, user)
-
-        time.sleep(args.notifier)
-
-
-updater = make_updater(token)
+updater = make_updater(token, args.notifier)
 Thread(target=crawler).start()
-Thread(target=notifier).start()
 updater.start_polling()

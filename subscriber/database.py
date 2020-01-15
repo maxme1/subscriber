@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 
 import feedparser
@@ -9,12 +10,17 @@ DATABASE_PATH = 'db.sqlite3'
 DATABASE = SqliteDatabase(DATABASE_PATH, pragmas=[('journal_mode', 'wal')])
 atomic = DATABASE.atomic
 
-REQUEST_HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 '
-                                 '(KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+REQUEST_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:72.0) Gecko/20100101 Firefox/72.0',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en,en-US;q=0.7,ru;q=0.3',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Cache-Control': 'max-age=0',
+}
 
 
 class Channel(Model):
-    TYPES = ['youtube', 'vk']
+    TYPES = ['youtube', 'vk', 'twitter']
 
     update_url = CharField(max_length=1000, unique=True)
     channel_url = CharField(max_length=1000, unique=True)
@@ -53,6 +59,12 @@ class Channel(Model):
             if i.startswith('wpt-'):
                 i = i[4:]
                 yield ChannelPost(identifier=i, url=f'https://vk.com/wall-{i}', channel=self)
+
+    def _update_twitter(self):
+        doc = html.fromstring(requests.get(self.update_url, headers=REQUEST_HEADERS).content)
+        for element in reversed(doc.cssselect('.tweet')):
+            link = element.attrib["data-permalink-path"]
+            yield ChannelPost(identifier=link, url=os.path.join('https://twitter.com', link), channel=self)
 
 
 class User(Model):
