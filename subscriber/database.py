@@ -64,7 +64,7 @@ class Channel(Model):
         doc = html.fromstring(requests.get(self.update_url, headers=REQUEST_HEADERS).content)
         for element in reversed(doc.cssselect('.tweet')):
             link = element.attrib["data-permalink-path"]
-            yield ChannelPost(identifier=link, url=os.path.join('https://twitter.com', link), channel=self)
+            yield ChannelPost(identifier=link, url=f'https://twitter.com{link}', channel=self)
 
 
 class User(Model):
