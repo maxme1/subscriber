@@ -25,10 +25,10 @@ def start(update: Update, context: CallbackContext):
 
 def link(update: Update, context: CallbackContext):
     message = update.message
-    url = message.text.strip().lower()
+    url = message.text.strip()
     parts = urlparse(url)
 
-    domain = '.'.join(parts.netloc.split('.')[-2:])
+    domain = '.'.join(parts.netloc.split('.')[-2:]).lower()
     if domain not in DOMAIN_TO_TYPE:
         return message.reply_text(f'Unknown domain: {domain}', quote=True)
 
