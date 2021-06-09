@@ -65,13 +65,13 @@ def track_twitter(url):
 
 
 TRACKERS = {
-    'twitter': track_twitter,
+    # 'twitter': track_twitter,
     'youtube': track_youtube,
     'vk': track_vk,
 }
 
 DOMAIN_TO_TYPE = {
-    'twitter.com': 'twitter',
+    # 'twitter.com': 'twitter',
     'youtube.com': 'youtube',
     'vk.com': 'vk',
 }

@@ -1,10 +1,13 @@
-import os
+import logging
 from datetime import datetime
 
 import feedparser
 import requests
 from lxml import html
+from opengraph.opengraph import OpenGraph
 from peewee import *
+
+logger = logging.getLogger(__name__)
 
 DATABASE_PATH = 'db.sqlite3'
 DATABASE = SqliteDatabase(DATABASE_PATH, pragmas=[('journal_mode', 'wal')])
@@ -38,19 +41,28 @@ class Channel(Model):
     def trigger_update(self, created=None):
         self.last_updated = datetime.now()
         self.save()
+        logger.debug('Updating channel %s', self)
 
         updater = getattr(self, '_update_' + self.type)
-        for post in updater():
-            try:
-                if created is not None:
-                    post.created = created
-                post.save()
-            except IntegrityError:
-                pass
+        for i, url in updater():
+            if ChannelPost.select().where(ChannelPost.identifier == i, ChannelPost.channel == self):
+                continue
+
+            fields = OpenGraph(url, scrape=True)
+            post = ChannelPost(
+                identifier=i, url=url, channel=self,
+                title=fields.get('title', ''), image=fields.get('image', ''),
+                description=fields.get('description', '')
+            )
+            if created is not None:
+                post.created = created
+            post.save()
+            logger.debug('New post %s for %s', url, self)
 
     def _update_youtube(self):
         for post in reversed(feedparser.parse(self.update_url)['entries']):
-            yield ChannelPost(identifier=post['id'], url=post['link'], channel=self)
+            url = post['link']
+            yield post['id'], url
 
     def _update_vk(self):
         doc = html.fromstring(requests.get(self.update_url, headers=REQUEST_HEADERS).content)
@@ -58,9 +70,11 @@ class Channel(Model):
             i = element.attrib.get('id', '')
             if i.startswith('wpt-'):
                 i = i[4:]
-                yield ChannelPost(identifier=i, url=f'https://vk.com/wall-{i}', channel=self)
+                url = f'https://vk.com/wall-{i}'
+                yield i, url
 
     def _update_twitter(self):
+        return
         doc = html.fromstring(requests.get(self.update_url, headers=REQUEST_HEADERS).content)
         for element in reversed(doc.cssselect('.tweet')):
             link = element.attrib["data-permalink-path"]
@@ -85,6 +99,9 @@ UserChannels = User.channels.get_through_model()
 class ChannelPost(Model):
     identifier = CharField()
     url = CharField(unique=True)
+    title = CharField(default='')
+    image = CharField(default='')
+    description = TextField(default='')
 
     channel = ForeignKeyField(Channel)
     created = DateTimeField(default=datetime.now)

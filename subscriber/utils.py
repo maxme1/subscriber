@@ -15,8 +15,8 @@ URL_REGEX = (
 URL_PATTERN = re.compile(URL_REGEX, flags=re.IGNORECASE)
 
 
-def update_base(update_delta):
-    for channel in Channel.select().where(Channel.last_updated <= datetime.now() - update_delta):
+def update_base():
+    for channel in Channel.select():  # .where(Channel.last_updated <= datetime.now() - update_delta):
         channel.trigger_update()
 
 

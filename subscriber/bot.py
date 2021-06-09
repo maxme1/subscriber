@@ -4,8 +4,8 @@ import logging
 from telegram import Message, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext, Job
 
-from subscriber.database import User
-from .utils import get_new_posts, URL_PATTERN, get_channels, remove_channel
+from .database import User
+from .utils import get_new_posts, URL_PATTERN, get_channels, remove_channel, update_base
 from .trackers import TRACKERS, DOMAIN_TO_TYPE
 
 
@@ -70,14 +70,21 @@ def button_callback(update: Update, context: CallbackContext):
 def send_new_posts(context: CallbackContext):
     for user in User.select():
         for post in get_new_posts(user):
-            context.bot.send_message(user.identifier, post.url)
+            text = f'{post.title}\n{post.description}\n{post.url}'.strip()
+            if post.image:
+                context.bot.send_photo(user.identifier, post.image, caption=text)
+            else:
+                context.bot.send_message(
+                    user.identifier, text,
+                    disable_web_page_preview=bool(post.title or post.description),
+                )
 
 
 def fallback(update: Update, context: CallbackContext):
     update.message.reply_text('Unknown command', quote=True)
 
 
-def on_error(update: Update, context: CallbackContext):
+def on_error(update, context: CallbackContext):
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
 
@@ -85,7 +92,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 
-def make_updater(token, update_interval) -> Updater:
+def make_updater(token, update_interval, crawler_interval) -> Updater:
     updater = Updater(token=token, use_context=True)
     dispatcher = updater.dispatcher
     job_queue = updater.job_queue
@@ -102,5 +109,6 @@ def make_updater(token, update_interval) -> Updater:
     dispatcher.add_handler(MessageHandler(Filters.all, fallback))
 
     job_queue.run_repeating(send_new_posts, interval=update_interval, first=0)
+    job_queue.run_repeating(lambda context: update_base(), interval=crawler_interval, first=0)
 
     return updater
