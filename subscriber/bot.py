@@ -1,11 +1,13 @@
+from contextlib import suppress
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 import logging
 
-from telegram import Message, Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext, Job
+from telegram import Message, Update, InlineKeyboardButton, InlineKeyboardMarkup, TelegramError, ParseMode
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 
-from .database import User
-from .utils import get_new_posts, URL_PATTERN, get_channels, remove_channel, update_base
+from .database import User, Task
+from .utils import get_new_posts, URL_PATTERN, get_channels, remove_channel, update_base, drop_prefix
 from .trackers import TRACKERS, DOMAIN_TO_TYPE
 
 
@@ -44,7 +46,7 @@ def list_channels(update: Update, context: CallbackContext):
 
 
 def make_keyboard(user_id):
-    buttons = [InlineKeyboardButton(str(c), callback_data=c.id) for c in get_channels(user_id)]
+    buttons = [InlineKeyboardButton(str(c), callback_data=f'DELETE:{c.id}') for c in get_channels(user_id)]
     if not buttons:
         return 'You have no subscriptions', None
 
@@ -57,27 +59,74 @@ def delete(update: Update, context: CallbackContext):
     message.reply_text(text, reply_markup=markup)
 
 
-def button_callback(update: Update, context: CallbackContext):
+def delete_callback(update: Update, context: CallbackContext):
     query = update.callback_query
     message = query.message
     user_id = message.chat.id
-    remove_channel(user_id, query.data)
+    remove_channel(user_id, drop_prefix(query.data, 'DELETE:'))
 
     text, markup = make_keyboard(user_id)
-    context.bot.edit_message_text(text=text, chat_id=user_id, message_id=message.message_id, reply_markup=markup)
+    message.edit_reply_markup(markup)
+
+
+def keep_callback(update: Update, context: CallbackContext):
+    query = update.callback_query
+    message = query.message
+    with suppress(Task.DoesNotExist):
+        Task.get(chat=int(message.chat.id), message=int(message.message_id)).delete_instance()
+
+    message.edit_reply_markup(InlineKeyboardMarkup.from_button(
+        InlineKeyboardButton('Dismiss', callback_data='DISMISS')))
+
+
+def dismiss_callback(update: Update, context: CallbackContext):
+    query = update.callback_query
+    message = query.message
+    with suppress(Task.DoesNotExist):
+        Task.get(chat=int(message.chat.id), message=int(message.message_id)).delete_instance()
+
+    message.delete()
+
+
+def send_post(post, user, bot):
+    text = f'{post.title}\n{post.description}\n{post.url}'.strip()
+
+    markup = InlineKeyboardMarkup.from_row([
+        InlineKeyboardButton('Keep', callback_data='KEEP'),
+        InlineKeyboardButton('Dismiss', callback_data='DISMISS'),
+    ])
+
+    if post.image:
+        message = bot.send_photo(
+            user.identifier, post.image, parse_mode=ParseMode.HTML,
+            caption=text, reply_markup=markup
+        )
+    else:
+        message = bot.send_message(
+            user.identifier, text, reply_markup=markup, parse_mode=ParseMode.HTML,
+            disable_web_page_preview=bool(post.title or post.description),
+        )
+
+    Task.create(
+        chat=int(user.identifier), message=message.message_id,
+        when=datetime.now() + timedelta(days=1)
+    )
 
 
 def send_new_posts(context: CallbackContext):
+    bot = context.bot
     for user in User.select():
         for post in get_new_posts(user):
-            text = f'{post.title}\n{post.description}\n{post.url}'.strip()
-            if post.image:
-                context.bot.send_photo(user.identifier, post.image, caption=text)
-            else:
-                context.bot.send_message(
-                    user.identifier, text,
-                    disable_web_page_preview=bool(post.title or post.description),
-                )
+            send_post(post, user, bot)
+
+
+def remove_old_posts(context: CallbackContext):
+    bot = context.bot
+    for task in Task.select().where(Task.when <= datetime.now()):
+        with suppress(TelegramError):
+            bot.delete_message(task.chat, task.message)
+
+        task.delete_instance()
 
 
 def fallback(update: Update, context: CallbackContext):
@@ -104,11 +153,15 @@ def make_updater(token, update_interval, crawler_interval) -> Updater:
     dispatcher.add_handler(CommandHandler('list', list_channels))
 
     dispatcher.add_handler(CommandHandler('delete', delete))
-    dispatcher.add_handler(CallbackQueryHandler(button_callback))
+
+    dispatcher.add_handler(CallbackQueryHandler(delete_callback, pattern='DELETE'))
+    dispatcher.add_handler(CallbackQueryHandler(keep_callback, pattern='KEEP'))
+    dispatcher.add_handler(CallbackQueryHandler(dismiss_callback, pattern='DISMISS'))
 
     dispatcher.add_handler(MessageHandler(Filters.all, fallback))
 
     job_queue.run_repeating(send_new_posts, interval=update_interval, first=0)
+    job_queue.run_repeating(remove_old_posts, interval=update_interval, first=0)
     job_queue.run_repeating(lambda context: update_base(), interval=crawler_interval, first=0)
 
     return updater

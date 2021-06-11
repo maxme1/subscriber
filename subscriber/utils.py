@@ -47,3 +47,8 @@ def remove_channel(user_id, channel_pk):
     user.channels.remove(channel)
     user.save()
     return channel
+
+
+def drop_prefix(x, prefix):
+    assert x.startswith(prefix), x
+    return x[len(prefix):]

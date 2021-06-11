@@ -5,6 +5,7 @@ import feedparser
 import requests
 from lxml import html
 from opengraph.opengraph import OpenGraph
+import peeweedbevolve
 from peewee import *
 
 logger = logging.getLogger(__name__)
@@ -109,3 +110,12 @@ class ChannelPost(Model):
     class Meta:
         database = DATABASE
         indexes = (('identifier', 'channel_id'), True),
+
+
+class Task(Model):
+    chat = IntegerField()
+    message = IntegerField()
+    when = DateTimeField()
+
+    class Meta:
+        database = DATABASE
