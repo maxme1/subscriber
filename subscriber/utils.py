@@ -1,8 +1,8 @@
 import re
-from datetime import datetime
 from typing import Iterable
 
 from .database import Channel, ChannelPost, User, atomic
+from .trackers import trigger_update
 
 URL_REGEX = (
     r'^(?:http|ftp)s?://'  # http:// or https://
@@ -17,7 +17,7 @@ URL_PATTERN = re.compile(URL_REGEX, flags=re.IGNORECASE)
 
 def update_base():
     for channel in Channel.select():  # .where(Channel.last_updated <= datetime.now() - update_delta):
-        channel.trigger_update()
+        trigger_update(channel)
 
 
 @atomic()

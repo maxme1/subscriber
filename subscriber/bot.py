@@ -3,22 +3,15 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse
 import logging
 
-from telegram import Message, Update, InlineKeyboardButton, InlineKeyboardMarkup, TelegramError, ParseMode
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, TelegramError, ParseMode
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 
+from .channels import DOMAIN_TO_CHANNEL
 from .database import User, Task
 from .utils import get_new_posts, URL_PATTERN, get_channels, remove_channel, update_base, drop_prefix
-from .trackers import TRACKERS, DOMAIN_TO_TYPE
+from .trackers import track
 
-
-def run_tracker(message: Message, command: str, *args, **kwargs):
-    try:
-        TRACKERS[command](message.chat.id, *args, **kwargs)
-    except BaseException as e:
-        message.reply_text(str(e), quote=True)
-        raise
-    else:
-        message.reply_text('Done', quote=True)
+logger = logging.getLogger(__name__)
 
 
 def start(update: Update, context: CallbackContext):
@@ -31,10 +24,16 @@ def link(update: Update, context: CallbackContext):
     parts = urlparse(url)
 
     domain = '.'.join(parts.netloc.split('.')[-2:]).lower()
-    if domain not in DOMAIN_TO_TYPE:
+    if domain not in DOMAIN_TO_CHANNEL:
         return message.reply_text(f'Unknown domain: {domain}', quote=True)
 
-    run_tracker(message, DOMAIN_TO_TYPE[domain], url)
+    try:
+        track(message.chat.id, DOMAIN_TO_CHANNEL[domain], url)
+    except BaseException:
+        message.reply_text('An unknown error occurred', quote=True)
+        raise
+    else:
+        message.reply_text('Done', quote=True)
 
 
 def list_channels(update: Update, context: CallbackContext):
@@ -135,10 +134,6 @@ def fallback(update: Update, context: CallbackContext):
 
 def on_error(update, context: CallbackContext):
     logger.warning('Update "%s" caused error "%s"', update, context.error)
-
-
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 def make_updater(token, update_interval, crawler_interval) -> Updater:
