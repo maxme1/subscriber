@@ -1,3 +1,4 @@
+import traceback
 from contextlib import suppress
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
@@ -28,8 +29,9 @@ def link(update: Update, context: CallbackContext):
         return message.reply_text(f'Unknown domain: {domain}', quote=True)
 
     try:
-        track(message.chat.id, DOMAIN_TO_CHANNEL[domain], url)
+        track(message.chat.id, DOMAIN_TO_CHANNEL[domain](), url)
     except BaseException:
+        traceback.print_exc()
         message.reply_text('An unknown error occurred', quote=True)
         raise
     else:

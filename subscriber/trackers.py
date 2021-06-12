@@ -11,7 +11,9 @@ logger = logging.getLogger(__name__)
 
 @atomic()
 def track(user_id, channel: ChannelAdapter, url: str):
-    channel, created = channel.track(url)
+    data = channel.track(url)
+    channel, created = Channel.get_or_create(
+        update_url=data.update_url, name=data.name, type=channel.name(), defaults={'channel_url': url})
     user, _ = User.get_or_create(identifier=user_id)
 
     if created:
@@ -30,19 +32,20 @@ def trigger_update(channel: Channel, created: datetime = None):
     channel.save()
     logger.debug('Updating channel %s', channel)
 
-    adapter: ChannelAdapter = TYPE_TO_CHANNEL[channel.type]
-
-    for i, url in adapter.update(channel.update_url):
-        if ChannelPost.select().where(ChannelPost.identifier == i, ChannelPost.channel == channel):
+    adapter: ChannelAdapter = TYPE_TO_CHANNEL[channel.type]()
+    for update in adapter.update(channel.update_url):
+        if ChannelPost.select().where(ChannelPost.identifier == update.id, ChannelPost.channel == channel):
             continue
 
-        content = adapter.scrape(url)
+        content = update.content
+        if content is None:
+            content = adapter.scrape(update.url)
         post = ChannelPost(
-            identifier=i, url=url, channel=channel,
+            identifier=update.id, url=update.url, channel=channel,
             title=content.title or '', image=content.image or '',
             description=content.description or ''
         )
         if created is not None:
             post.created = created
         post.save()
-        logger.debug('New post %s for %s', url, channel)
+        logger.debug('New post %s for %s', update.url, channel)
