@@ -4,3 +4,4 @@ requests
 feedparser
 peewee
 python-telegram-bot
+selenium
