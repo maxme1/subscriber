@@ -4,7 +4,6 @@ from urllib.parse import urlparse
 
 import requests
 from lxml import html
-from opengraph.opengraph import OpenGraph
 
 from .base import Content, ChannelAdapter, ChannelData, PostUpdate
 
@@ -13,6 +12,7 @@ class VK(ChannelAdapter):
     domain = 'vk.com'
 
     GROUP_NAME = re.compile(r'^/(\w+)$', flags=re.IGNORECASE)
+    IMAGE_LINK = re.compile(r'background-image: url\((.*)\);')
     REQUEST_HEADERS = {
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:72.0) Gecko/20100101 Firefox/72.0',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -37,5 +37,20 @@ class VK(ChannelAdapter):
                 yield PostUpdate(i, f'https://vk.com/wall-{i}')
 
     def scrape(self, url: str) -> Content:
-        fields = OpenGraph(url, scrape=True)
-        return Content(fields['title'], fields['description'])
+        doc = html.fromstring(requests.get(url, headers=VK.REQUEST_HEADERS).content)
+        _, i = url.split('/wall-')
+        post, = [x for x in doc.cssselect(f'div[data-post-id="-{i}"]')]
+        kw = {}
+
+        text = post.cssselect('.wall_post_text')
+        if text:
+            kw['description'] = text[0].text_content()
+
+        image = post.cssselect('.page_post_thumb_wrap')
+        if image:
+            image = image[0]
+            match = VK.IMAGE_LINK.search(image.attrib['style'])
+            if match:
+                kw['image'] = match.group(1)
+
+        return Content(**kw)

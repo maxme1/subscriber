@@ -1,13 +1,5 @@
-import re
 from abc import ABC, abstractmethod
-from collections import Counter
 from typing import NamedTuple, Optional
-from urllib.parse import urlparse
-
-import feedparser
-from lxml import html
-import requests
-from opengraph.opengraph import OpenGraph
 
 from .database import Channel
 
@@ -41,5 +33,3 @@ class ChannelAdapter(ABC):
         assert cls.domain not in DOMAIN_TO_CHANNEL
         TYPE_TO_CHANNEL[cls.__name__] = cls
         DOMAIN_TO_CHANNEL[cls.domain] = cls
-
-
