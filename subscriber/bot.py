@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 import logging
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, TelegramError, ParseMode
+from telegram.error import BadRequest
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 
 from .channels import DOMAIN_TO_CHANNEL
@@ -98,10 +99,18 @@ def send_post(post, user, bot):
     ])
 
     if post.image:
-        message = bot.send_photo(
-            user.identifier, post.image, parse_mode=ParseMode.HTML,
-            caption=text, reply_markup=markup
-        )
+        try:
+            message = bot.send_photo(
+                user.identifier, post.image, parse_mode=ParseMode.HTML,
+                caption=text, reply_markup=markup
+            )
+
+        except BadRequest:
+            # TODO: remove duplicate
+            message = bot.send_message(
+                user.identifier, text, reply_markup=markup, parse_mode=ParseMode.HTML,
+                disable_web_page_preview=bool(post.title or post.description),
+            )
     else:
         message = bot.send_message(
             user.identifier, text, reply_markup=markup, parse_mode=ParseMode.HTML,

@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 import time
 
 from selenium import webdriver
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver import FirefoxProfile
 from selenium.webdriver.firefox.options import Options
 
@@ -29,8 +30,9 @@ class Twitter(ChannelAdapter):
         profile.set_preference('dom.ipc.plugins.enabled.libflashplayer.so', 'false')
         options.headless = True
         driver = webdriver.Firefox(firefox_options=options, firefox_profile=profile)
+        driver.get(url)
+
         try:
-            driver.get(url)
             tweets = self._get_tweets(driver)
 
             # wait up to 2 seconds
@@ -50,6 +52,9 @@ class Twitter(ChannelAdapter):
                         break
 
             return reversed(results)
+
+        except StaleElementReferenceException:
+            return []
 
         finally:
             driver.close()
