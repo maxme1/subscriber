@@ -14,6 +14,8 @@ class Channel(Model):
     update_url = CharField(max_length=1000, unique=True)
     channel_url = CharField(max_length=1000, unique=True)
     name = CharField(max_length=200)
+    image = CharField(default='')
+
     last_updated = DateTimeField(default=datetime.now)
     type = CharField()
 

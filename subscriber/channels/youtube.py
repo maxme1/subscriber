@@ -24,7 +24,7 @@ class YouTube(ChannelAdapter):
         name = feedparser.parse(update_url)['feed']['title']
         return ChannelData(update_url, name)
 
-    def update(self, url: str) -> Iterable[PostUpdate]:
+    def update(self, url: str, channel: ChannelData) -> Iterable[PostUpdate]:
         for post in reversed(feedparser.parse(url)['entries']):
             yield PostUpdate(post['id'], post['link'])
 

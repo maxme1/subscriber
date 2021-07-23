@@ -23,7 +23,7 @@ class Twitter(ChannelAdapter):
             raise ValueError(f'{path} is not a valid channel name.')
         return ChannelData(url, name.group(1))
 
-    def update(self, url: str) -> Iterable[PostUpdate]:
+    def update(self, url: str, channel: ChannelData) -> Iterable[PostUpdate]:
         options = Options()
         profile = FirefoxProfile()
         profile.set_preference('permissions.default.image', 2)

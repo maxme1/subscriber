@@ -28,7 +28,7 @@ class VK(ChannelAdapter):
             raise ValueError(f'{path} is not a valid channel name.')
         return ChannelData(url, name.group(1))
 
-    def update(self, url: str) -> Iterable[PostUpdate]:
+    def update(self, url: str, channel: ChannelData) -> Iterable[PostUpdate]:
         doc = html.fromstring(requests.get(url, headers=VK.REQUEST_HEADERS).content)
         for element in reversed(doc.cssselect('.wall_post_cont')):
             i = element.attrib.get('id', '')

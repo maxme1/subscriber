@@ -8,7 +8,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Telegra
 from telegram.error import BadRequest
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 
-from .channels import DOMAIN_TO_CHANNEL
+from .channels import DOMAIN_TO_CHANNEL, ChannelAdapter
 from .database import User, Task
 from .utils import get_new_posts, URL_PATTERN, get_channels, remove_channel, update_base, drop_prefix
 from .trackers import track
@@ -90,18 +90,22 @@ def dismiss_callback(update: Update, context: CallbackContext):
     message.delete()
 
 
-def send_post(post, user, bot):
+def send_post(post, channel, adapter: ChannelAdapter, user, bot):
     text = f'{post.title}\n{post.description}\n{post.url}'.strip()
+    if adapter.add_name:
+        text = f'{channel.name}\n{text}'
 
     markup = InlineKeyboardMarkup.from_row([
         InlineKeyboardButton('Keep', callback_data='KEEP'),
         InlineKeyboardButton('Dismiss', callback_data='DISMISS'),
     ])
 
-    if post.image:
+    image = post.image or channel.image
+
+    if image:
         try:
             message = bot.send_photo(
-                user.identifier, post.image, parse_mode=ParseMode.HTML,
+                user.identifier, image, parse_mode=ParseMode.HTML,
                 caption=text, reply_markup=markup
             )
 
@@ -126,8 +130,8 @@ def send_post(post, user, bot):
 def send_new_posts(context: CallbackContext):
     bot = context.bot
     for user in User.select():
-        for post in get_new_posts(user):
-            send_post(post, user, bot)
+        for post, channel, adapter in get_new_posts(user):
+            send_post(post, channel, adapter, user, bot)
 
 
 def remove_old_posts(context: CallbackContext):

@@ -1,6 +1,7 @@
 import re
 from typing import Iterable
 
+from .channels import TYPE_TO_CHANNEL
 from .database import Channel, ChannelPost, User, atomic
 from .trackers import trigger_update
 
@@ -25,9 +26,11 @@ def get_new_posts(user: User) -> Iterable[ChannelPost]:
     last_updated = user.last_updated
 
     for channel in user.channels:
+        adapter = TYPE_TO_CHANNEL[channel.type]()
+
         for post in ChannelPost.select().where(ChannelPost.channel == channel).where(
                 ChannelPost.created > user.last_updated).order_by(ChannelPost.created):
-            yield post
+            yield post, channel, adapter
             last_updated = max(last_updated, post.created)
 
     if last_updated > user.last_updated:

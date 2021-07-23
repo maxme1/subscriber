@@ -14,6 +14,8 @@ class Content(NamedTuple):
 class ChannelData(NamedTuple):
     update_url: str
     name: str
+    image: Optional[str] = None
+    url: Optional[str] = None
 
 
 class PostUpdate(NamedTuple):
@@ -24,13 +26,14 @@ class PostUpdate(NamedTuple):
 
 class ChannelAdapter(ABC):
     domain: str
+    add_name: bool = False
 
     @abstractmethod
     def track(self, url: str) -> ChannelData:
         pass
 
     @abstractmethod
-    def update(self, url: str) -> Iterable[PostUpdate]:
+    def update(self, url: str, channel: ChannelData) -> Iterable[PostUpdate]:
         pass
 
     @abstractmethod
