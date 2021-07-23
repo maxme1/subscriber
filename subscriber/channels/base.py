@@ -14,7 +14,7 @@ class Content(NamedTuple):
 class ChannelData(NamedTuple):
     update_url: str
     name: str
-    image: Optional[str] = None
+    image: str = ''
     url: Optional[str] = None
 
 
