@@ -12,9 +12,13 @@ class Content(NamedTuple):
 
 
 class ChannelData(NamedTuple):
+    # the url used to scrape for updates
     update_url: str
+    # the channel name
     name: str
+    # an optional image URL
     image: str = ''
+    # a standardized channel url (optional)
     url: Optional[str] = None
 
 
@@ -30,15 +34,15 @@ class ChannelAdapter(ABC):
 
     @abstractmethod
     def track(self, url: str) -> ChannelData:
-        pass
+        """ Get essential channel information based on the provided url """
 
     @abstractmethod
-    def update(self, url: str, channel: ChannelData) -> Iterable[PostUpdate]:
-        pass
+    def update(self, update_url: str, channel: ChannelData) -> Iterable[PostUpdate]:
+        """ Get the list of posts for a channel """
 
     @abstractmethod
-    def scrape(self, url: str) -> Content:
-        pass
+    def scrape(self, post_url: str) -> Content:
+        """ Get additional information for a post. Invoked only if post_update.content is None """
 
     @classmethod
     def name(cls):

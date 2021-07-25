@@ -23,14 +23,14 @@ class Twitter(ChannelAdapter):
             raise ValueError(f'{path} is not a valid channel name.')
         return ChannelData(url, name.group(1))
 
-    def update(self, url: str, channel: ChannelData) -> Iterable[PostUpdate]:
+    def update(self, update_url: str, channel: ChannelData) -> Iterable[PostUpdate]:
         options = Options()
         profile = FirefoxProfile()
         profile.set_preference('permissions.default.image', 2)
         profile.set_preference('dom.ipc.plugins.enabled.libflashplayer.so', 'false')
         options.headless = True
         driver = webdriver.Firefox(firefox_options=options, firefox_profile=profile)
-        driver.get(url)
+        driver.get(update_url)
 
         try:
             tweets = self._get_tweets(driver)
@@ -59,7 +59,7 @@ class Twitter(ChannelAdapter):
         finally:
             driver.close()
 
-    def scrape(self, url: str) -> Content:
+    def scrape(self, post_url: str) -> Content:
         raise RuntimeError
 
     @staticmethod

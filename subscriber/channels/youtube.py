@@ -24,10 +24,10 @@ class YouTube(ChannelAdapter):
         name = feedparser.parse(update_url)['feed']['title']
         return ChannelData(update_url, name)
 
-    def update(self, url: str, channel: ChannelData) -> Iterable[PostUpdate]:
-        for post in reversed(feedparser.parse(url)['entries']):
+    def update(self, update_url: str, channel: ChannelData) -> Iterable[PostUpdate]:
+        for post in reversed(feedparser.parse(update_url)['entries']):
             yield PostUpdate(post['id'], post['link'])
 
-    def scrape(self, url: str) -> Content:
-        fields = OpenGraph(url, scrape=True)
+    def scrape(self, post_url: str) -> Content:
+        fields = OpenGraph(post_url, scrape=True)
         return Content(fields['title'], fields['description'], fields['image'])

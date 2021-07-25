@@ -4,6 +4,7 @@ from datetime import datetime
 import peewee
 
 from .channels import ChannelAdapter, TYPE_TO_CHANNEL
+from .channels.base import Content
 from .database import atomic, User, Channel, ChannelPost
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,8 @@ def trigger_update(channel: Channel, created: datetime = None):
         content = update.content
         if content is None:
             content = adapter.scrape(update.url)
+        if content is None:
+            content = Content()
         post = ChannelPost(
             identifier=update.id, url=update.url, channel=channel,
             title=content.title or '', image=content.image or '',
