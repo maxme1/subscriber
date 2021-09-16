@@ -5,3 +5,4 @@ feedparser
 peewee
 python-telegram-bot
 selenium
+topicaxis-opengraph
