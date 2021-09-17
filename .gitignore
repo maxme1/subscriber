@@ -2,3 +2,15 @@
 __pycache__/
 subscriber/token.py
 db.sqlite3
+
+Pipfile
+Pipfile.lock
+db.sqlite3-shm
+db.sqlite3-wal
+subscriber.log
+subscriber.pid
+subscriber/bin/
+subscriber/lib/
+subscriber/lib64
+subscriber/pyvenv.cfg
+subscriber/share/
