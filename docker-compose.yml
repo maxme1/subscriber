@@ -1,0 +1,16 @@
+version: "3.7"
+
+services:
+   app:
+      build: .
+      ports:
+         - target: 81
+           published: 81
+      volumes:
+         - type: bind
+           source: /dbs/subscriber/
+           target: /db
+      env_file:
+         - /secret/subscriber/.env
+volumes:
+   db:

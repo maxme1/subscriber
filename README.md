@@ -31,3 +31,16 @@ Error: GDK_BACKEND does not match available displays
 ```
 
 Fix: `https://stackoverflow.com/a/51162392`
+
+## Running bot on a machine
+
+### Preparation
+
+- database db.sqlite3 in /dbs/subscriber/ directory
+- env file /secret/subscriber/.env with specified env variable TOKEN which contain telegram token
+
+### Run
+
+```
+docker-compose up --build --detach
+```

@@ -1,6 +1,5 @@
 .idea/
 __pycache__/
-subscriber/token.py
 db.sqlite3
 
 Pipfile
@@ -14,3 +13,4 @@ subscriber/lib/
 subscriber/lib64
 subscriber/pyvenv.cfg
 subscriber/share/
+geckodriver.log

@@ -5,7 +5,7 @@ from peewee import *
 
 logger = logging.getLogger(__name__)
 
-DATABASE_PATH = 'db.sqlite3'
+DATABASE_PATH = '/db/db.sqlite3'
 DATABASE = SqliteDatabase(DATABASE_PATH, pragmas=[('journal_mode', 'wal')])
 atomic = DATABASE.atomic
 
