@@ -33,7 +33,7 @@ RUN apt-get update -y \
   && apt-get -y install \
     xvfb \
   && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
-RUN Xvfb :10 -ac &
-RUN export DISPLAY=:10
+
+RUN nohup bash -c "/code/prepare-display.sh &" && sleep 4
 
 CMD ["python", "./app.py"]
