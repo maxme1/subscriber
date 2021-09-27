@@ -34,6 +34,13 @@ RUN apt-get update -y \
     xvfb \
   && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 
-RUN nohup bash -c "/code/prepare-display.sh &" && sleep 4
+RUN echo "#!/bin/bash\n" \
+	 "Xvfb :10 -ac &\n" \
+         "python ./app.py\n" > run.sh
 
-CMD ["python", "./app.py"]
+#COPY run.sh run.sh
+#RUN nohup bash -c "/code/prepare-display.sh &" && sleep 4
+
+RUN chmod +x run.sh
+ENV DISPLAY=:10
+CMD ./run.sh
