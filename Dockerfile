@@ -1,8 +1,16 @@
-FROM python:3.8
+FROM ubuntu:bionic
+#FROM python:3.8
+
+RUN apt-get update && apt-get install -y \
+    python3 python3-pip \
+    fonts-liberation libappindicator3-1 libasound2 libatk-bridge2.0-0 \
+    libnspr4 libnss3 lsb-release xdg-utils libxss1 libdbus-glib-1-2 \
+    curl unzip wget \
+    xvfb
 
 WORKDIR /code
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 RUN GECKODRIVER_VERSION=`curl https://github.com/mozilla/geckodriver/releases/latest | grep -Po 'v[0-9]+.[0-9]+.[0-9]+'` && \
     wget https://github.com/mozilla/geckodriver/releases/download/$GECKODRIVER_VERSION/geckodriver-$GECKODRIVER_VERSION-linux64.tar.gz && \
@@ -29,14 +37,9 @@ COPY . .
 
 #RUN /code/prepare-display.sh
 
-RUN apt-get update -y \
-  && apt-get -y install \
-    xvfb \
-  && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
-
 RUN echo "#!/bin/bash\n" \
 	 "Xvfb :10 -ac &\n" \
-         "python ./app.py\n" > run.sh
+         "python3 ./app.py\n" > run.sh
 
 #COPY run.sh run.sh
 #RUN nohup bash -c "/code/prepare-display.sh &" && sleep 4
