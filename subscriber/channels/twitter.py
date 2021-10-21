@@ -25,10 +25,10 @@ class Twitter(ChannelAdapter):
 
     def update(self, update_url: str, channel: ChannelData) -> Iterable[PostUpdate]:
         options = Options()
+        options.headless = True
         profile = FirefoxProfile()
         profile.set_preference('permissions.default.image', 2)
         profile.set_preference('dom.ipc.plugins.enabled.libflashplayer.so', 'false')
-        options.headless = True
         driver = webdriver.Firefox(firefox_options=options, firefox_profile=profile)
         driver.get(update_url)
 

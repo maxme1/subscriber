@@ -1,16 +1,14 @@
-version: "3.7"
+version: '3.8'
 
 services:
-   app:
-      build: .
-      ports:
-         - target: 81
-           published: 81
-      volumes:
-         - type: bind
-           source: /dbs/subscriber/
-           target: /db
-      env_file:
-         - /secret/subscriber/.env
-volumes:
-   db:
+  app:
+    build: .
+    shm_size: '2gb'
+    volumes:
+      - type: bind
+        source: /dbs/subscriber/
+        target: /db
+      - '/etc/timezone:/etc/timezone:ro'
+      - '/etc/localtime:/etc/localtime:ro'
+    env_file:
+      - /secret/subscriber/.env

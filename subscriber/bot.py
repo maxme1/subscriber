@@ -132,6 +132,8 @@ def send_new_posts(context: CallbackContext):
     for user in User.select():
         for post, channel, adapter in get_new_posts(user):
             send_post(post, channel, adapter, user, bot)
+            user.last_updated = datetime.now()
+            user.save()
 
 
 def remove_old_posts(context: CallbackContext):

@@ -21,7 +21,6 @@ def update_base():
         trigger_update(channel)
 
 
-@atomic()
 def get_new_posts(user: User) -> Iterable[ChannelPost]:
     last_updated = user.last_updated
 
@@ -29,13 +28,8 @@ def get_new_posts(user: User) -> Iterable[ChannelPost]:
         adapter = TYPE_TO_CHANNEL[channel.type]()
 
         for post in ChannelPost.select().where(ChannelPost.channel == channel).where(
-                ChannelPost.created > user.last_updated).order_by(ChannelPost.created):
+                ChannelPost.created > last_updated).order_by(ChannelPost.created):
             yield post, channel, adapter
-            last_updated = max(last_updated, post.created)
-
-    if last_updated > user.last_updated:
-        user.last_updated = last_updated
-        user.save()
 
 
 def get_channels(user_id) -> Iterable[Channel]:
