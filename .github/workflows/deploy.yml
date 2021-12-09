@@ -1,0 +1,22 @@
+name: Deploy CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Copying files to server
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.REMOTE_HOST }}
+        username: ${{ secrets.REMOTE_USER }}
+        key: ${{ secrets.SSH_KEY }}
+        passphrase: ${{ secrets.SSH_KEY_PASSPHRASE }}
+        source: "*"
+        target: "~/sources"
