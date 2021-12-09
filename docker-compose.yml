@@ -12,3 +12,4 @@ services:
       - '/etc/localtime:/etc/localtime:ro'
     env_file:
       - /secret/subscriber/.env
+    container_name: subscriber_app
