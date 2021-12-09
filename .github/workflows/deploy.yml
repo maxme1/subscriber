@@ -29,7 +29,7 @@ jobs:
         key: ${{ secrets.KEY }}
         port: ${{ secrets.PORT }}
         script: |
-              (cd ~/prod && docker-compose down)
-              rm -rf ~/prod/*
-              cp -r ~/sources/* ~/prod/
-              (cd ~/prod && docker-compose up --build --detach)
+              (cd ~/prod/subscriber/ && docker-compose down)
+              rm -rf ~/prod/subscriber/*
+              cp -r ~/sources/* ~/prod/subscriber/
+              (cd ~/prod/subscriber && docker-compose up --build --detach)
