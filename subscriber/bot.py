@@ -1,17 +1,16 @@
 import traceback
 from contextlib import suppress
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 import logging
 
-from sqlalchemy.future import select
 from sqlalchemy.orm import Session
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, TelegramError, ParseMode
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 
 from .channels import DOMAIN_TO_CHANNEL, ChannelAdapter
 from .crud import get_new_posts, get_channels, remove_channel, track, subscribe, update_base
-from .models import Chat, Post, TelegramFile, Channel
+from .models import Chat, Post, TelegramFile, Channel, ChatPost, ChatPostState
 from .utils import URL_PATTERN, drop_prefix, STORAGE, no_context, with_session
 
 logger = logging.getLogger(__name__)
@@ -54,8 +53,11 @@ def list_channels(update: Update, session: Session):
     message.reply_text(channels)
 
 
-def make_keyboard(user_id):
-    buttons = [InlineKeyboardButton(str(c), callback_data=f'DELETE:{c.id}') for c in get_channels(user_id)]
+def make_keyboard(user_id, session):
+    buttons = [
+        InlineKeyboardButton(str(c), callback_data=f'DELETE:{c.id}')
+        for c in get_channels(session, user_id)
+    ]
     if not buttons:
         return 'You have no subscriptions', None
 
@@ -63,9 +65,10 @@ def make_keyboard(user_id):
 
 
 @no_context
-def delete(update: Update):
+@with_session
+def delete(update: Update, session: Session):
     message = update.message
-    text, markup = make_keyboard(message.chat.id)
+    text, markup = make_keyboard(message.chat.id, session)
     message.reply_text(text, reply_markup=markup)
 
 
@@ -77,7 +80,7 @@ def delete_callback(update: Update, session: Session):
     user_id = message.chat.id
     remove_channel(session, user_id, drop_prefix(query.data, 'DELETE:'))
 
-    text, markup = make_keyboard(user_id)
+    text, markup = make_keyboard(session, user_id)
     message.edit_reply_markup(markup)
 
 
@@ -86,8 +89,9 @@ def delete_callback(update: Update, session: Session):
 def keep_callback(update: Update, session: Session):
     query = update.callback_query
     message = query.message
-    with suppress(Task.DoesNotExist):
-        Task.get(chat=int(message.chat.id), message=int(message.message_id)).delete_instance()
+    post = session.query(ChatPost).where(ChatPost.message_id == message.message_id).first()
+    if post is not None:
+        post.state = ChatPostState.Keeping
 
     message.edit_reply_markup(InlineKeyboardMarkup.from_button(
         InlineKeyboardButton('Dismiss', callback_data='DISMISS')))
@@ -98,8 +102,9 @@ def keep_callback(update: Update, session: Session):
 def dismiss_callback(update: Update, session: Session):
     query = update.callback_query
     message = query.message
-    with suppress(Task.DoesNotExist):
-        Task.get(chat=int(message.chat.id), message=int(message.message_id)).delete_instance()
+    post = session.query(ChatPost).where(ChatPost.message_id == message.message_id).first()
+    if post is not None:
+        post.state = ChatPostState.Deleted
 
     message.delete()
 
@@ -155,11 +160,16 @@ def send_new_posts(context: CallbackContext, session: Session):
 @with_session
 def remove_old_posts(context: CallbackContext, session: Session):
     bot = context.bot
-    for task in Task.select().where(Task.when <= datetime.now()):
-        with suppress(TelegramError):
-            bot.delete_message(task.chat, task.message)
+    outdated = session.query(ChatPost).where(ChatPost.state == ChatPostState.Posted).where(
+        ChatPost.post.has(Post.created < datetime.utcnow() - timedelta(days=2))
+    )
 
-        task.delete_instance()
+    for chat_post in outdated.all():
+        with suppress(TelegramError):
+            bot.delete_message(chat_post.chat.identifier, chat_post.message_id)
+
+        chat_post.state = ChatPostState.Deleted
+        session.flush()
 
 
 @no_context
@@ -168,9 +178,7 @@ def fallback(update: Update):
 
 
 def on_error(update, context: CallbackContext):
-    raise context.error
-    # traceback.print_exc()
-    # tb = ''.join(traceback.format_exception(type(error), value=error))
+    # raise context.error
     logger.warning('Update "%s" caused error %s: %s', update, type(context.error).__name__, context.error)
 
 
@@ -194,7 +202,7 @@ def make_updater(token, update_interval, crawler_interval) -> Updater:
     dispatcher.add_handler(MessageHandler(Filters.all, fallback))
 
     job_queue.run_repeating(send_new_posts, interval=update_interval, first=5)
-    # job_queue.run_repeating(remove_old_posts, interval=update_interval, first=10)
+    job_queue.run_repeating(remove_old_posts, interval=update_interval, first=10)
     job_queue.run_repeating(with_session(
         lambda context, session: update_base(session)), interval=crawler_interval, first=0)
 

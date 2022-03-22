@@ -31,7 +31,7 @@ def update_channel(session: Session, channel: Channel):
     logger.debug('Updating channel %s', channel)
 
     subscribers = session.query(Chat).where(Chat.channels.contains(channel)).all()
-    was_empty = session.query(Post).where(Post.channel == channel).first() is None
+    notify = subscribers and session.query(Post).where(Post.channel == channel).first() is not None
 
     count = 0
     adapter = ChannelAdapter.dispatch_type(channel.type)
@@ -56,9 +56,11 @@ def update_channel(session: Session, channel: Channel):
         session.flush()
         # prepare chat posts to be sent to subscribers
         #   but only if the channel was already updated in the past
-        if not was_empty:
+        if notify:
             session.add_all([
-                ChatPost(post=post, chat=chat, state=ChatPostState.Pending) for chat in subscribers
+                ChatPost(
+                    post_id=post.id, chat_id=chat.id, state=ChatPostState.Pending
+                ) for chat in subscribers
             ])
             session.flush()
 
