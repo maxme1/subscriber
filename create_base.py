@@ -1,9 +1,7 @@
 import os
 
-from subscriber.database import *
+from subscriber.base import *
+from subscriber.models import *
 
-if os.path.exists(DATABASE_PATH):
-    os.remove(DATABASE_PATH)
-
-with DATABASE:
-    DATABASE.create_tables([User, Channel, ChannelPost, UserChannels, Task])
+assert not os.path.exists(DATABASE_PATH)
+Base.metadata.create_all(engine)

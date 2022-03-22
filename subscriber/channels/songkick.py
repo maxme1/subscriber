@@ -6,6 +6,7 @@ import requests
 from lxml import html
 
 from .base import Content, ChannelAdapter, ChannelData, PostUpdate
+from ..utils import store_url
 
 
 class SongKick(ChannelAdapter):
@@ -21,23 +22,24 @@ class SongKick(ChannelAdapter):
         parts = parts[:2]
 
         url = urlunparse(ParseResult(parsed.scheme, parsed.netloc, str(Path(*parts)), '', '', ''))
-        doc = html.fromstring(requests.get(url).content)
+        doc = html.fromstring(requests.get(url).content.decode('utf-8'))
         header, = doc.cssselect('.artist-header')
         name, = header.cssselect('h1')
         image, = header.cssselect('img.artist-profile-image')
+        name = name.text.strip()
 
         image = image.attrib.get('src')
         if image.startswith(r'//'):
             image = f'https:{image}'
         else:
             image = f'https://www.songkick.com/{image}'
-        name = name.text.strip()
+        image = store_url(image)
 
         calendar = urlunparse(ParseResult(parsed.scheme, parsed.netloc, str(Path(*parts, 'calendar')), '', '', ''))
         return ChannelData(calendar, name, image=image, url=url)
 
     def update(self, update_url: str, channel: ChannelData) -> Iterable[PostUpdate]:
-        doc = html.fromstring(requests.get(update_url).content)
+        doc = html.fromstring(requests.get(update_url).content.decode('utf-8'))
         summary = doc.cssselect('#calendar-summary')
         if not summary:
             return

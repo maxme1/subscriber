@@ -6,10 +6,16 @@ services:
     shm_size: '2gb'
     volumes:
       - type: bind
-        source: /dbs/subscriber/
+        source: "${SERVICES_ROOT}/subscriber/db"
         target: /db
+      - type: bind
+        source: "${SERVICES_ROOT}/subscriber/storage"
+        target: /storage
       - '/etc/timezone:/etc/timezone:ro'
       - '/etc/localtime:/etc/localtime:ro'
     env_file:
-      - /secret/subscriber/.env
+      - "${SERVICES_ROOT}/subscriber/.env"
+    environment:
+      - STORAGE_PATH=/storage
+      - DATABASE_PATH=/db/db.sqlite3
     container_name: subscriber_app

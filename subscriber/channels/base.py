@@ -16,8 +16,8 @@ class ChannelData(NamedTuple):
     update_url: str
     # the channel name
     name: str
-    # an optional image URL
-    image: str = ''
+    # an optional image hash
+    image: Optional[str] = None
     # a standardized channel url (optional)
     url: Optional[str] = None
 
@@ -47,6 +47,14 @@ class ChannelAdapter(ABC):
     @classmethod
     def name(cls):
         return cls.__name__
+
+    @staticmethod
+    def dispatch_type(type):
+        return TYPE_TO_CHANNEL[type]()
+
+    @staticmethod
+    def dispatch_domain(domain):
+        return DOMAIN_TO_CHANNEL[domain]()
 
     def __init_subclass__(cls, **kwargs):
         assert cls.__name__ not in TYPE_TO_CHANNEL

@@ -1,17 +1,18 @@
 import traceback
 from contextlib import suppress
-from datetime import datetime, timedelta
+from datetime import datetime
 from urllib.parse import urlparse
 import logging
 
+from sqlalchemy.future import select
+from sqlalchemy.orm import Session
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, TelegramError, ParseMode
-from telegram.error import BadRequest
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 
 from .channels import DOMAIN_TO_CHANNEL, ChannelAdapter
-from .database import User, Task
-from .utils import get_new_posts, URL_PATTERN, get_channels, remove_channel, update_base, drop_prefix
-from .trackers import track
+from .crud import get_new_posts, get_channels, remove_channel, track, subscribe, update_base
+from .models import Chat, Post, TelegramFile, Channel
+from .utils import URL_PATTERN, drop_prefix, STORAGE, no_context, with_session
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,9 @@ def start(update: Update, context: CallbackContext):
     context.bot.send_message(update.message.chat.id, 'Hi! Send me a link to a channel and I will subscribe you to it.')
 
 
-def link(update: Update, context: CallbackContext):
+@no_context
+@with_session
+def link(update: Update, session: Session):
     message = update.message
     url = message.text.strip()
     parts = urlparse(url)
@@ -30,7 +33,9 @@ def link(update: Update, context: CallbackContext):
         return message.reply_text(f'Unknown domain: {domain}', quote=True)
 
     try:
-        track(message.chat.id, DOMAIN_TO_CHANNEL[domain](), url)
+        channel, _ = track(session, DOMAIN_TO_CHANNEL[domain](), url)
+        subscribe(session, channel, message.chat.id)
+
     except BaseException:
         traceback.print_exc()
         message.reply_text('An unknown error occurred', quote=True)
@@ -39,9 +44,11 @@ def link(update: Update, context: CallbackContext):
         message.reply_text('Done', quote=True)
 
 
-def list_channels(update: Update, context: CallbackContext):
+@no_context
+@with_session
+def list_channels(update: Update, session: Session):
     message = update.message
-    channels = '\n'.join(map(str, get_channels(message.chat.id)))
+    channels = '\n'.join(map(str, get_channels(session, message.chat.id)))
     if not channels:
         channels = 'You have no subscriptions'
     message.reply_text(channels)
@@ -55,23 +62,28 @@ def make_keyboard(user_id):
     return 'Chose a channel to delete', InlineKeyboardMarkup([buttons[i:i + 2] for i in range(0, len(buttons), 2)])
 
 
-def delete(update: Update, context: CallbackContext):
+@no_context
+def delete(update: Update):
     message = update.message
     text, markup = make_keyboard(message.chat.id)
     message.reply_text(text, reply_markup=markup)
 
 
-def delete_callback(update: Update, context: CallbackContext):
+@no_context
+@with_session
+def delete_callback(update: Update, session: Session):
     query = update.callback_query
     message = query.message
     user_id = message.chat.id
-    remove_channel(user_id, drop_prefix(query.data, 'DELETE:'))
+    remove_channel(session, user_id, drop_prefix(query.data, 'DELETE:'))
 
     text, markup = make_keyboard(user_id)
     message.edit_reply_markup(markup)
 
 
-def keep_callback(update: Update, context: CallbackContext):
+@no_context
+@with_session
+def keep_callback(update: Update, session: Session):
     query = update.callback_query
     message = query.message
     with suppress(Task.DoesNotExist):
@@ -81,7 +93,9 @@ def keep_callback(update: Update, context: CallbackContext):
         InlineKeyboardButton('Dismiss', callback_data='DISMISS')))
 
 
-def dismiss_callback(update: Update, context: CallbackContext):
+@no_context
+@with_session
+def dismiss_callback(update: Update, session: Session):
     query = update.callback_query
     message = query.message
     with suppress(Task.DoesNotExist):
@@ -90,7 +104,7 @@ def dismiss_callback(update: Update, context: CallbackContext):
     message.delete()
 
 
-def send_post(post, channel, adapter: ChannelAdapter, user, bot):
+def send_post(post: Post, channel: Channel, adapter: ChannelAdapter, chat: Chat, bot):
     text = f'{post.title}\n{post.description}\n{post.url}'.strip()
     if adapter.add_name:
         text = f'{channel.name}\n{text}'
@@ -100,43 +114,46 @@ def send_post(post, channel, adapter: ChannelAdapter, user, bot):
         InlineKeyboardButton('Dismiss', callback_data='DISMISS'),
     ])
 
-    image = post.image or channel.image
+    image: TelegramFile = post.image or channel.image
+    chat_it = chat.identifier
+    image_id = None
 
     if image:
-        try:
+        if image.identifier is None:
+            with open(STORAGE.resolve(image.hash), 'rb') as img:
+                message = bot.send_photo(
+                    chat_it, img, parse_mode=ParseMode.HTML,
+                    caption=text, reply_markup=markup
+                )
+                image_id = message.photo[0].file_id
+
+        else:
             message = bot.send_photo(
-                user.identifier, image, parse_mode=ParseMode.HTML,
+                chat_it, image.identifier, parse_mode=ParseMode.HTML,
                 caption=text, reply_markup=markup
             )
 
-        except BadRequest:
-            # TODO: remove duplicate
-            message = bot.send_message(
-                user.identifier, text, reply_markup=markup, parse_mode=ParseMode.HTML,
-                disable_web_page_preview=bool(post.title or post.description),
-            )
     else:
         message = bot.send_message(
-            user.identifier, text, reply_markup=markup, parse_mode=ParseMode.HTML,
+            chat_it, text, reply_markup=markup, parse_mode=ParseMode.HTML,
             disable_web_page_preview=bool(post.title or post.description),
         )
 
-    Task.create(
-        chat=int(user.identifier), message=message.message_id,
-        when=datetime.now() + timedelta(days=1)
-    )
+    return message.message_id, image, image_id
 
 
-def send_new_posts(context: CallbackContext):
-    bot = context.bot
-    for user in User.select():
-        for post, channel, adapter in get_new_posts(user):
-            send_post(post, channel, adapter, user, bot)
-            user.last_updated = datetime.now()
-            user.save()
+@with_session
+def send_new_posts(context: CallbackContext, session: Session):
+    for chat in session.query(Chat).all():
+        with suppress(StopIteration):
+            iterable, value = get_new_posts(session, chat), None
+            while True:
+                post, channel, adapter = iterable.send(value)
+                value = send_post(post, channel, adapter, chat, context.bot)
 
 
-def remove_old_posts(context: CallbackContext):
+@with_session
+def remove_old_posts(context: CallbackContext, session: Session):
     bot = context.bot
     for task in Task.select().where(Task.when <= datetime.now()):
         with suppress(TelegramError):
@@ -145,12 +162,16 @@ def remove_old_posts(context: CallbackContext):
         task.delete_instance()
 
 
-def fallback(update: Update, context: CallbackContext):
+@no_context
+def fallback(update: Update):
     update.message.reply_text('Unknown command', quote=True)
 
 
 def on_error(update, context: CallbackContext):
-    logger.warning('Update "%s" caused error "%s"', update, context.error)
+    raise context.error
+    # traceback.print_exc()
+    # tb = ''.join(traceback.format_exception(type(error), value=error))
+    logger.warning('Update "%s" caused error %s: %s', update, type(context.error).__name__, context.error)
 
 
 def make_updater(token, update_interval, crawler_interval) -> Updater:
@@ -173,7 +194,8 @@ def make_updater(token, update_interval, crawler_interval) -> Updater:
     dispatcher.add_handler(MessageHandler(Filters.all, fallback))
 
     job_queue.run_repeating(send_new_posts, interval=update_interval, first=5)
-    job_queue.run_repeating(remove_old_posts, interval=update_interval, first=10)
-    job_queue.run_repeating(lambda context: update_base(), interval=crawler_interval, first=0)
+    # job_queue.run_repeating(remove_old_posts, interval=update_interval, first=10)
+    job_queue.run_repeating(with_session(
+        lambda context, session: update_base(session)), interval=crawler_interval, first=0)
 
     return updater

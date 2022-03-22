@@ -1,4 +1,6 @@
 import re
+import tempfile
+from pathlib import Path
 from typing import Iterable
 from urllib.parse import urlparse
 import time
@@ -7,8 +9,10 @@ from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver import FirefoxProfile
 from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.remote.webelement import WebElement
 
 from .base import Content, ChannelAdapter, ChannelData, PostUpdate
+from ..utils import STORAGE
 
 
 class Twitter(ChannelAdapter):
@@ -27,7 +31,9 @@ class Twitter(ChannelAdapter):
         options = Options()
         options.headless = True
         profile = FirefoxProfile()
+        # don't load images
         profile.set_preference('permissions.default.image', 2)
+        # don't use flash
         profile.set_preference('dom.ipc.plugins.enabled.libflashplayer.so', 'false')
         driver = webdriver.Firefox(firefox_options=options, firefox_profile=profile)
         driver.get(update_url)
@@ -43,13 +49,23 @@ class Twitter(ChannelAdapter):
                 n_iters -= 1
 
             results = []
-            for tweet in tweets:
-                content = self._find_text(tweet)
-                for link in tweet.find_elements_by_css_selector('a[role=link]'):
-                    link = link.get_property('href')
-                    if '/status/' in link:
-                        results.append(PostUpdate(link, f'https://twitter.com{link}', content))
-                        break
+            tweet: WebElement
+            with tempfile.TemporaryDirectory() as folder:
+                file = str(Path(folder, 'file.png'))
+
+                for tweet in tweets:
+                    # content = self._find_text(tweet)
+                    for link in tweet.find_elements_by_css_selector('a[role=link]'):
+                        link = link.get_property('href')
+
+                        if '/status/' in link:
+                            # take a tween screenshot
+                            tweet.screenshot(file)
+                            results.append(PostUpdate(
+                                link, f'https://twitter.com{link}',
+                                Content(image=STORAGE.write(file)),
+                            ))
+                            break
 
             return reversed(results)
 

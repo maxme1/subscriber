@@ -6,6 +6,7 @@ import requests
 from lxml import html
 
 from .base import Content, ChannelAdapter, ChannelData, PostUpdate
+from ..utils import store_url
 
 
 class VK(ChannelAdapter):
@@ -29,7 +30,7 @@ class VK(ChannelAdapter):
         return ChannelData(url, name.group(1))
 
     def update(self, update_url: str, channel: ChannelData) -> Iterable[PostUpdate]:
-        doc = html.fromstring(requests.get(update_url, headers=VK.REQUEST_HEADERS).content)
+        doc = html.fromstring(requests.get(update_url, headers=VK.REQUEST_HEADERS).content.decode('utf-8'))
         for element in reversed(doc.cssselect('.wall_post_cont')):
             i = element.attrib.get('id', '')
             if i.startswith('wpt-'):
@@ -37,7 +38,7 @@ class VK(ChannelAdapter):
                 yield PostUpdate(i, f'https://vk.com/wall-{i}')
 
     def scrape(self, post_url: str) -> Content:
-        doc = html.fromstring(requests.get(post_url, headers=VK.REQUEST_HEADERS).content)
+        doc = html.fromstring(requests.get(post_url, headers=VK.REQUEST_HEADERS).content.decode('utf-8'))
         _, i = post_url.split('/wall-')
         post, = [x for x in doc.cssselect(f'div[data-post-id="-{i}"]')]
         kw = {}
@@ -51,6 +52,6 @@ class VK(ChannelAdapter):
             image = image[0]
             match = VK.IMAGE_LINK.search(image.attrib['style'])
             if match:
-                kw['image'] = match.group(1)
+                kw['image'] = store_url(match.group(1))
 
         return Content(**kw)
