@@ -32,10 +32,11 @@ class Twitter(ChannelAdapter):
         options.headless = True
         profile = FirefoxProfile()
         # don't load images
-        profile.set_preference('permissions.default.image', 2)
+        # profile.set_preference('permissions.default.image', 2)
         # don't use flash
         profile.set_preference('dom.ipc.plugins.enabled.libflashplayer.so', 'false')
         driver = webdriver.Firefox(firefox_options=options, firefox_profile=profile)
+        driver.set_window_size(1000, 1000)
         driver.get(update_url)
 
         try:
@@ -47,6 +48,9 @@ class Twitter(ChannelAdapter):
                 time.sleep(0.1)
                 tweets = self._get_tweets(driver)
                 n_iters -= 1
+
+            # disable an annoying message
+            driver.execute_script("arguments[0].style.visibility='hidden'", driver.find_element_by_id('layers'))
 
             results = []
             tweet: WebElement
