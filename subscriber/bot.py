@@ -5,12 +5,13 @@ from urllib.parse import urlparse
 import logging
 
 from sqlalchemy.orm import Session
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, TelegramError, ParseMode
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, TelegramError, ParseMode, Bot
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 
 from .channels import DOMAIN_TO_CHANNEL, ChannelAdapter
 from .crud import get_new_posts, get_channels, remove_channel, track, subscribe, update_base
 from .models import Chat, Post, TelegramFile, Channel, ChatPost, ChatPostState
+from .ops import delete_message
 from .utils import URL_PATTERN, drop_prefix, STORAGE, no_context, with_session
 
 logger = logging.getLogger(__name__)
@@ -97,16 +98,15 @@ def keep_callback(update: Update, session: Session):
         InlineKeyboardButton('Dismiss', callback_data='DISMISS')))
 
 
-@no_context
 @with_session
-def dismiss_callback(update: Update, session: Session):
+def dismiss_callback(update: Update, context: CallbackContext, session: Session):
     query = update.callback_query
     message = query.message
     post = session.query(ChatPost).where(ChatPost.message_id == message.message_id).first()
     if post is not None:
         post.state = ChatPostState.Deleted
 
-    message.delete()
+    delete_message(context.bot, message.chat_id, message.message_id)
 
 
 def send_post(post: Post, channel: Channel, adapter: ChannelAdapter, chat: Chat, bot):
@@ -159,14 +159,12 @@ def send_new_posts(context: CallbackContext, session: Session):
 
 @with_session
 def remove_old_posts(context: CallbackContext, session: Session):
-    bot = context.bot
     outdated = session.query(ChatPost).where(ChatPost.state == ChatPostState.Posted).where(
         ChatPost.post.has(Post.created < datetime.utcnow() - timedelta(days=1))
     )
 
     for chat_post in outdated.all():
-        with suppress(TelegramError):
-            bot.delete_message(chat_post.chat.identifier, chat_post.message_id)
+        delete_message(context.bot, chat_post.chat.identifier, chat_post.message_id)
 
         chat_post.state = ChatPostState.Deleted
         session.flush()

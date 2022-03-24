@@ -14,10 +14,12 @@ UPDATE_DELTA = timedelta(hours=args.crawler)
 token = os.environ['TOKEN']
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger('subscriber')
-handler = TimedRotatingFileHandler(f"{os.environ['LOGS_PATH']}/warning.log", when='midnight')
-handler.setLevel(logging.WARNING)
-logger.addHandler(handler)
+logs_path = os.environ.get('LOGS_PATH')
+if logs_path is not None:
+    logger = logging.getLogger('subscriber')
+    handler = TimedRotatingFileHandler(f"{logs_path}/warning.log", when='midnight')
+    handler.setLevel(logging.WARNING)
+    logger.addHandler(handler)
 
 updater = make_updater(token, update_interval=args.notifier, crawler_interval=UPDATE_DELTA.total_seconds())
 updater.start_polling()
