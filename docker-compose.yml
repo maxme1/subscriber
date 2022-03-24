@@ -11,6 +11,9 @@ services:
       - type: bind
         source: "${SERVICES_ROOT}/subscriber/storage"
         target: /storage
+      - type: bind
+        source: "${SERVICES_ROOT}/subscriber/logs"
+        target: /logs
       - '/etc/timezone:/etc/timezone:ro'
       - '/etc/localtime:/etc/localtime:ro'
     env_file:
@@ -18,4 +21,5 @@ services:
     environment:
       - STORAGE_PATH=/storage
       - DATABASE_PATH=/db/db.sqlite3
+      - LOGS_PATH=/logs
     container_name: subscriber_app
