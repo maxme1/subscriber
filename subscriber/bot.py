@@ -161,7 +161,7 @@ def send_new_posts(context: CallbackContext, session: Session):
 def remove_old_posts(context: CallbackContext, session: Session):
     bot = context.bot
     outdated = session.query(ChatPost).where(ChatPost.state == ChatPostState.Posted).where(
-        ChatPost.post.has(Post.created < datetime.utcnow() - timedelta(days=2))
+        ChatPost.post.has(Post.created < datetime.utcnow() - timedelta(days=1))
     )
 
     for chat_post in outdated.all():
