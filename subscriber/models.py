@@ -41,6 +41,7 @@ class Chat(Base):
     identifier = Column(Unicode, nullable=False, unique=True)
 
     channels = relationship('Channel', secondary='ChatChannel', back_populates='chats')
+    chat_posts = relationship('ChatPost', back_populates='chat')
 
     # posts = relationship('Post', secondary='ChatPost', back_populates='chats')
 
@@ -93,6 +94,6 @@ class ChatPost(Base):
     message_id = Column(Unicode, nullable=True)
 
     chat_id = Column(ForeignKey(Chat.id, ondelete='CASCADE'), nullable=False)
-    # chat = relationship(Chat)
+    chat = relationship(Chat, back_populates='chat_posts')
     post_id = Column(ForeignKey(Post.id, ondelete='CASCADE'), nullable=False)
     post = relationship(Post, back_populates='chat_posts')
