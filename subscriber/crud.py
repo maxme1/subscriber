@@ -93,7 +93,7 @@ def get_new_posts(session: Session, chat: Chat):
 
             chat_post.state = ChatPostState.Posted
             chat_post.message_id = message_id
-            if image.identifier is None and image_id is not None:
+            if image is not None and image.identifier is None and image_id is not None:
                 image.identifier = image_id
 
             session.commit()
