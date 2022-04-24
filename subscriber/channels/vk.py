@@ -29,9 +29,11 @@ class VK(ChannelAdapter):
             i = element.attrib.get('data-post-id', '')
             if i.startswith('-') and i not in visited:
                 visited.add(i)
-                yield PostUpdate(i[1:], f'https://vk.com/wall{i}')
+                yield PostUpdate(i[1:], f'https://vk.com/wall{i}', Content())
 
     def scrape(self, post_url: str) -> Content:
+        return Content()
+
         doc = html.fromstring(requests.get(post_url).content.decode('utf-8'))
         _, i = post_url.split('/wall-')
         post, = [x for x in doc.cssselect('.wi_body')]
