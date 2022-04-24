@@ -23,28 +23,27 @@ class VK(ChannelAdapter):
         return ChannelData(url, name.group(1))
 
     def update(self, update_url: str, channel: ChannelData) -> Iterable[PostUpdate]:
+        visited = set()
         doc = html.fromstring(requests.get(update_url).content.decode('utf-8'))
-        for element in reversed(doc.cssselect('.wall_post_cont')):
-            i = element.attrib.get('id', '')
-            if i.startswith('wpt-'):
-                i = i[4:]
-                yield PostUpdate(i, f'https://vk.com/wall-{i}')
+        for element in reversed(doc.cssselect('[data-post-id]')):
+            i = element.attrib.get('data-post-id', '')
+            if i.startswith('-') and i not in visited:
+                visited.add(i)
+                yield PostUpdate(i[1:], f'https://vk.com/wall{i}')
 
     def scrape(self, post_url: str) -> Content:
         doc = html.fromstring(requests.get(post_url).content.decode('utf-8'))
         _, i = post_url.split('/wall-')
-        post, = [x for x in doc.cssselect(f'div[data-post-id="-{i}"]')]
+        post, = [x for x in doc.cssselect('.wi_body')]
         kw = {}
 
-        text = post.cssselect('.wall_post_text')
+        text = post.cssselect('.pi_text')
         if text:
             kw['description'] = text[0].text_content()
 
-        image = post.cssselect('.page_post_thumb_wrap')
+        image = post.cssselect(f'.thumb_link>[data-src_big]')
         if image:
             image = image[0]
-            match = VK.IMAGE_LINK.search(image.attrib['style'])
-            if match:
-                kw['image'] = store_url(match.group(1))
+            kw['image'] = store_url(image.attrib['data-src_big'])
 
         return Content(**kw)
