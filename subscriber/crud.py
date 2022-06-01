@@ -82,10 +82,10 @@ def update_base(session: Session):
 
 
 def get_new_posts(session: Session, chat: Chat):
-    with session.begin_nested():
-        posts = session.query(ChatPost).where(
-            (ChatPost.chat_id == chat.id) & (ChatPost.state == ChatPostState.Pending))
-        for chat_post in posts.all():
+    posts = session.query(ChatPost).where(
+        (ChatPost.chat_id == chat.id) & (ChatPost.state == ChatPostState.Pending))
+    for chat_post in posts.all():
+        with session.begin_nested():
             post, = session.query(Post).where(Post.id == chat_post.post_id).all()
             message_id, image, image_id = yield post, post.channel, ChannelAdapter.dispatch_type(post.channel.type)
 
@@ -94,7 +94,7 @@ def get_new_posts(session: Session, chat: Chat):
             if image is not None and image.identifier is None and image_id is not None:
                 image.identifier = image_id
 
-            session.commit()
+            session.flush()
 
 
 def get_channels(session: Session, chat_id) -> Iterable[Channel]:
