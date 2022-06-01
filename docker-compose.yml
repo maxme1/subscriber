@@ -2,6 +2,12 @@ version: '3.7'
 
 services:
   app:
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 500M
+
     build: .
     shm_size: '2gb'
     volumes:

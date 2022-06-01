@@ -18,6 +18,7 @@ logs_path = os.environ.get('LOGS_PATH')
 if logs_path is not None:
     logger = logging.getLogger('subscriber')
     handler = TimedRotatingFileHandler(f"{logs_path}/warning.log", when='midnight')
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     handler.setLevel(logging.WARNING)
     logger.addHandler(handler)
 

@@ -202,6 +202,6 @@ def make_updater(token, update_interval, crawler_interval) -> Updater:
     job_queue.run_repeating(send_new_posts, interval=update_interval, first=5)
     job_queue.run_repeating(remove_old_posts, interval=update_interval, first=10)
     job_queue.run_repeating(with_session(
-        lambda context, session: update_base(session)), interval=crawler_interval, first=0)
+        lambda context, session: update_base(session)), interval=crawler_interval, first=30)
 
     return updater

@@ -28,58 +28,56 @@ def track(session: Session, adapter: ChannelAdapter, url: str):
 
 
 def update_channel(session: Session, channel: Channel):
-    logger.debug('Updating channel %s', channel)
+    subscribers = session.query(Chat).where(Chat.channels.contains(channel)).all()
+    notify = subscribers and session.query(Post).where(Post.channel == channel).first() is not None
 
-    try:
+    count = 0
+    adapter = ChannelAdapter.dispatch_type(channel.type)
+    for update in adapter.update(channel.update_url, channel):
+        if session.query(Post).where(
+                (Post.identifier == update.id) & (Post.channel_id == channel.id)).first() is not None:
+            logger.info('Ignoring an already existing update %s for %s', update.url, channel)
+            continue
 
-        subscribers = session.query(Chat).where(Chat.channels.contains(channel)).all()
-        notify = subscribers and session.query(Post).where(Post.channel == channel).first() is not None
+        content = update.content
+        if content is None:
+            content = adapter.scrape(update.url)
+        if content is None:
+            content = Content()
 
-        count = 0
-        adapter = ChannelAdapter.dispatch_type(channel.type)
-        for update in adapter.update(channel.update_url, channel):
-            if session.query(Post).where(
-                    (Post.identifier == update.id) & (Post.channel_id == channel.id)).first() is not None:
-                logger.info('Ignoring an already existing update %s for %s', update.url, channel)
-                continue
-
-            content = update.content
-            if content is None:
-                content = adapter.scrape(update.url)
-            if content is None:
-                content = Content()
-
-            # create the post
-            post = Post(
-                identifier=update.id, channel=channel, url=update.url, title=content.title or '',
-                image=wrap_image_hash(session, content.image), description=content.description or '',
-            )
-            session.add(post)
+        # create the post
+        post = Post(
+            identifier=update.id, channel=channel, url=update.url, title=content.title or '',
+            image=wrap_image_hash(session, content.image), description=content.description or '',
+        )
+        session.add(post)
+        session.flush()
+        # prepare chat posts to be sent to subscribers
+        #   but only if the channel was already updated in the past
+        if notify:
+            session.add_all([
+                ChatPost(
+                    post_id=post.id, chat_id=chat.id, state=ChatPostState.Pending
+                ) for chat in subscribers
+            ])
             session.flush()
-            # prepare chat posts to be sent to subscribers
-            #   but only if the channel was already updated in the past
-            if notify:
-                session.add_all([
-                    ChatPost(
-                        post_id=post.id, chat_id=chat.id, state=ChatPostState.Pending
-                    ) for chat in subscribers
-                ])
-                session.flush()
 
-            logger.info('New post %s for %s', update.url, channel)
-            count += 1
+        logger.info('New post %s for %s', update.url, channel)
+        count += 1
 
-        return count
-
-    except Exception as e:
-        logger.error('Error while updating %s (%s): %s: %s', channel.name, channel.type, type(e).__name__, e)
-        raise
+    return count
 
 
 def update_base(session: Session):
     count = 0
     for channel in session.query(Channel).all():
-        count += update_channel(session, channel)
+        logger.debug('Updating channel %s', channel)
+
+        try:
+            count += update_channel(session, channel)
+        except Exception as e:
+            logger.error('Error while updating %s (%s): %s: %s', channel.name, channel.type, type(e).__name__, e)
+
     return count
 
 
