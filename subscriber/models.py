@@ -76,9 +76,9 @@ class ChatChannel(Base):
     id = Column(Integer, primary_key=True)
 
     chat_id = Column(ForeignKey(Chat.id, ondelete='CASCADE'), nullable=False)
-    # chat = relationship(Chat)
+    chat = relationship(Chat, viewonly=True)
     channel_id = Column(ForeignKey(Channel.id, ondelete='CASCADE'), nullable=False)
-    # channel = relationship(Channel)
+    channel = relationship(Channel, viewonly=True)
 
 
 class ChatPostState(enum.Enum):

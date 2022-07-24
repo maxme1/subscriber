@@ -103,9 +103,9 @@ def get_channels(session: Session, chat_id) -> Iterable[Channel]:
 
 
 def remove_channel(session: Session, user_id, channel_pk):
-    session.query(ChatChannel).filter(
-        (ChatChannel.user.identifier == user_id) & (ChatChannel.channel.id == channel_pk)
-    ).delete()
+    return session.query(ChatChannel).filter(
+        ChatChannel.chat.has(Chat.identifier == user_id) & (ChatChannel.channel_id == channel_pk)
+    ).delete(synchronize_session=False)
 
 
 def wrap_image_hash(session: Session, image):
