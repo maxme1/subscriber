@@ -81,7 +81,7 @@ def delete_callback(update: Update, session: Session):
     user_id = message.chat.id
     remove_channel(session, user_id, drop_prefix(query.data, 'DELETE:'))
 
-    text, markup = make_keyboard(session, user_id)
+    text, markup = make_keyboard(user_id, session)
     message.edit_reply_markup(markup)
 
 
