@@ -13,6 +13,5 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-RUN chmod +x run.sh
+RUN chmod +x run-celery.sh
 ENV DISPLAY=:10
-CMD ./run.sh

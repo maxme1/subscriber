@@ -2,14 +2,8 @@ version: '3.7'
 
 services:
   app:
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 500M
-
     build: .
-    shm_size: '2gb'
+    command: python app.py
     volumes:
       - type: bind
         source: "${SERVICES_ROOT}/subscriber/db"
@@ -28,4 +22,38 @@ services:
       - STORAGE_PATH=/storage
       - DATABASE_PATH=/db/db.sqlite3
       - LOGS_PATH=/logs
-    container_name: subscriber_app
+
+  celery:
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 400M
+
+    build: .
+    command: ./run-celery.sh
+    shm_size: '2gb'
+
+    volumes:
+      - type: bind
+        source: "${SERVICES_ROOT}/subscriber/db"
+        target: /db
+      - type: bind
+        source: "${SERVICES_ROOT}/subscriber/storage"
+        target: /storage
+      - type: bind
+        source: "${SERVICES_ROOT}/subscriber/logs"
+        target: /logs
+      - '/etc/timezone:/etc/timezone:ro'
+      - '/etc/localtime:/etc/localtime:ro'
+    env_file:
+      - "${SERVICES_ROOT}/subscriber/.env"
+    environment:
+      - STORAGE_PATH=/storage
+      - DATABASE_PATH=/db/db.sqlite3
+      - LOGS_PATH=/logs
+
+  redis:
+    image: 'redis:6.2'
+    expose:
+      - '6379'

@@ -5,11 +5,12 @@ from urllib.parse import urlparse
 import logging
 
 from sqlalchemy.orm import Session
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, TelegramError, ParseMode, Bot
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 
+from .celery import update
 from .channels import DOMAIN_TO_CHANNEL, ChannelAdapter
-from .crud import get_new_posts, get_channels, remove_channel, track, subscribe, update_base
+from .crud import get_new_posts, get_channels, remove_channel, track, subscribe
 from .models import Chat, Post, TelegramFile, Channel, ChatPost, ChatPostState
 from .ops import delete_message
 from .utils import URL_PATTERN, drop_prefix, STORAGE, no_context, with_session
@@ -201,7 +202,6 @@ def make_updater(token, update_interval, crawler_interval) -> Updater:
 
     job_queue.run_repeating(send_new_posts, interval=update_interval, first=5)
     job_queue.run_repeating(remove_old_posts, interval=update_interval, first=10)
-    job_queue.run_repeating(with_session(
-        lambda context, session: update_base(session)), interval=crawler_interval, first=30)
+    job_queue.run_repeating(lambda context: update.delay(), interval=crawler_interval, first=30)
 
     return updater
