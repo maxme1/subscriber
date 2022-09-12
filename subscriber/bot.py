@@ -79,10 +79,10 @@ def delete(update: Update, session: Session):
 def delete_callback(update: Update, session: Session):
     query = update.callback_query
     message = query.message
-    user_id = message.chat.id
-    remove_channel(session, user_id, drop_prefix(query.data, 'DELETE:'))
+    chat_id = message.chat.id
+    remove_channel(session, chat_id, drop_prefix(query.data, 'DELETE:'))
 
-    text, markup = make_keyboard(user_id, session)
+    text, markup = make_keyboard(chat_id, session)
     message.edit_reply_markup(markup)
 
 
@@ -91,7 +91,7 @@ def delete_callback(update: Update, session: Session):
 def keep_callback(update: Update, session: Session):
     query = update.callback_query
     message = query.message
-    post = session.query(ChatPost).where(ChatPost.message_id == message.message_id).first()
+    post = session.query(ChatPost).where(ChatPost.message_id == str(message.message_id)).first()
     if post is not None:
         post.state = ChatPostState.Keeping
 
@@ -103,7 +103,7 @@ def keep_callback(update: Update, session: Session):
 def dismiss_callback(update: Update, context: CallbackContext, session: Session):
     query = update.callback_query
     message = query.message
-    post = session.query(ChatPost).where(ChatPost.message_id == message.message_id).first()
+    post = session.query(ChatPost).where(ChatPost.message_id == str(message.message_id)).first()
     if post is not None:
         post.state = ChatPostState.Deleted
 
@@ -121,27 +121,27 @@ def send_post(post: Post, channel: Channel, adapter: ChannelAdapter, chat: Chat,
     ])
 
     image: TelegramFile = post.image or channel.image
-    chat_it = chat.identifier
+    chat_id = chat.identifier
     image_id = None
 
     if image:
         if image.identifier is None:
             with open(STORAGE.resolve(image.hash), 'rb') as img:
                 message = bot.send_photo(
-                    chat_it, img, parse_mode=ParseMode.HTML,
+                    chat_id, img, parse_mode=ParseMode.HTML,
                     caption=text, reply_markup=markup
                 )
                 image_id = message.photo[0].file_id
 
         else:
             message = bot.send_photo(
-                chat_it, image.identifier, parse_mode=ParseMode.HTML,
+                chat_id, image.identifier, parse_mode=ParseMode.HTML,
                 caption=text, reply_markup=markup
             )
 
     else:
         message = bot.send_message(
-            chat_it, text, reply_markup=markup, parse_mode=ParseMode.HTML,
+            chat_id, text, reply_markup=markup, parse_mode=ParseMode.HTML,
             disable_web_page_preview=bool(post.title or post.description),
         )
 

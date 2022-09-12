@@ -3,26 +3,47 @@ version: '3.7'
 services:
   app:
     build: .
-    command: python app.py
+    command: ./run-app.sh
+    depends_on:
+      - db
     volumes:
-      - type: bind
-        source: "${SERVICES_ROOT}/subscriber/db"
-        target: /db
-      - type: bind
-        source: "${SERVICES_ROOT}/subscriber/storage"
-        target: /storage
-      - type: bind
-        source: "${SERVICES_ROOT}/subscriber/logs"
-        target: /logs
+      - db:/db
+      - storage:/storage
+      - logs:/logs
       - '/etc/timezone:/etc/timezone:ro'
       - '/etc/localtime:/etc/localtime:ro'
     env_file:
       - "${SERVICES_ROOT}/subscriber/.env"
     environment:
       - STORAGE_PATH=/storage
-      - DATABASE_PATH=/db/db.sqlite3
       - LOGS_PATH=/logs
 
+  # db
+  db:
+    image: 'postgres:14.5'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /db/postgres
+    volumes:
+      - db:/db
+    expose:
+      - 5432
+
+#  pgadmin:
+#    container_name: pgadmin_container
+#    image: dpage/pgadmin4
+#    environment:
+#      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+#      PGADMIN_DEFAULT_PASSWORD: admin
+#      PGADMIN_CONFIG_SERVER_MODE: 'False'
+#
+#    volumes:
+#      - /db:/var/lib
+#    ports:
+#      - '127.0.0.1:5050:80'
+
+  # workers
   celery:
     deploy:
       resources:
@@ -33,17 +54,13 @@ services:
     build: .
     command: ./run-celery.sh
     shm_size: '2gb'
+    depends_on:
+      - redis
 
     volumes:
-      - type: bind
-        source: "${SERVICES_ROOT}/subscriber/db"
-        target: /db
-      - type: bind
-        source: "${SERVICES_ROOT}/subscriber/storage"
-        target: /storage
-      - type: bind
-        source: "${SERVICES_ROOT}/subscriber/logs"
-        target: /logs
+      - db:/db
+      - storage:/storage
+      - logs:/logs
       - '/etc/timezone:/etc/timezone:ro'
       - '/etc/localtime:/etc/localtime:ro'
     env_file:
@@ -57,3 +74,26 @@ services:
     image: 'redis:6.2'
     expose:
       - '6379'
+
+volumes:
+  static_volume:
+  db:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: "${SERVICES_ROOT}/subscriber/db"
+
+  storage:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: "${SERVICES_ROOT}/subscriber/storage"
+
+  logs:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: "${SERVICES_ROOT}/subscriber/logs"

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def subscribe(session: Session, channel: Channel, chat_id):
-    chat, _ = get_or_create(session, Chat, identifier=chat_id)
+    chat, _ = get_or_create(session, Chat, identifier=str(chat_id))
     get_or_create(session, ChatChannel, chat_id=chat.id, channel_id=channel.id)
 
 
@@ -35,7 +35,8 @@ def update_channel(session: Session, channel: Channel):
     adapter = ChannelAdapter.dispatch_type(channel.type)
     for update in adapter.update(channel.update_url, channel):
         if session.query(Post).where(
-                (Post.identifier == update.id) & (Post.channel_id == channel.id)).first() is not None:
+            (Post.identifier == update.id) & (Post.channel_id == channel.id)
+        ).first() is not None:
             logger.info('Ignoring an already existing update %s for %s', update.url, channel)
             continue
 
@@ -78,12 +79,15 @@ def update_base(session: Session):
         except Exception as e:
             logger.error('Error while updating %s (%s): %s: %s', channel.name, channel.type, type(e).__name__, e)
 
+        session.commit()
+
     return count
 
 
 def get_new_posts(session: Session, chat: Chat):
     posts = session.query(ChatPost).where(
-        (ChatPost.chat_id == chat.id) & (ChatPost.state == ChatPostState.Pending))
+        (ChatPost.chat_id == chat.id) & (ChatPost.state == ChatPostState.Pending)
+    )
     for chat_post in posts.all():
         with session.begin_nested():
             post, = session.query(Post).where(Post.id == chat_post.post_id).all()
@@ -97,14 +101,14 @@ def get_new_posts(session: Session, chat: Chat):
             session.flush()
 
 
-def get_channels(session: Session, chat_id) -> Iterable[Channel]:
-    user, _ = get_or_create(session, Chat, identifier=chat_id)
+def get_channels(session: Session, chat_id: int) -> Iterable[Channel]:
+    user, _ = get_or_create(session, Chat, identifier=str(chat_id))
     return user.channels
 
 
-def remove_channel(session: Session, user_id, channel_pk):
+def remove_channel(session: Session, chat_id, channel_pk):
     return session.query(ChatChannel).filter(
-        ChatChannel.chat.has(Chat.identifier == user_id) & (ChatChannel.channel_id == channel_pk)
+        ChatChannel.chat.has(Chat.identifier == str(chat_id)) & (ChatChannel.channel_id == channel_pk)
     ).delete(synchronize_session=False)
 
 

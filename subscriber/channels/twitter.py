@@ -28,6 +28,7 @@ class Twitter(ChannelAdapter):
         return ChannelData(url, name.group(1))
 
     def update(self, update_url: str, channel: ChannelData) -> Iterable[PostUpdate]:
+        return []
         options = Options()
         options.headless = True
         profile = FirefoxProfile()
