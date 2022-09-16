@@ -13,7 +13,7 @@ class YouTube(ChannelAdapter):
     domain = 'youtube.com'
 
     def track(self, url: str) -> ChannelData:
-        body = requests.get(url).content.decode('utf-8')
+        body = requests.get(url, cookies=dict(CONSENT='YES+999')).content.decode('utf-8')
         doc = html.fromstring(body)
         channel_ids = Counter([d.attrib['content'] for d in doc.xpath('//meta[@itemprop="channelId"]')]).most_common(1)
         if not channel_ids:
