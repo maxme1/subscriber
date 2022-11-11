@@ -1,17 +1,21 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import NamedTuple, Optional, Iterable
+from typing import Optional, Iterable
+
+from pydantic import BaseModel
 
 TYPE_TO_CHANNEL = {}
 DOMAIN_TO_CHANNEL = {}
 
 
-class Content(NamedTuple):
+class Content(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     image: Optional[str] = None
 
 
-class ChannelData(NamedTuple):
+class ChannelData(BaseModel):
     # the url used to scrape for updates
     update_url: str
     # the channel name
@@ -22,7 +26,7 @@ class ChannelData(NamedTuple):
     url: Optional[str] = None
 
 
-class PostUpdate(NamedTuple):
+class PostUpdate(BaseModel):
     id: str
     url: str
     content: Optional[Content] = None
@@ -37,7 +41,7 @@ class ChannelAdapter(ABC):
         """ Get essential channel information based on the provided url """
 
     @abstractmethod
-    def update(self, update_url: str, channel: ChannelData) -> Iterable[PostUpdate]:
+    def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
         """ Get the list of posts for a channel """
 
     @abstractmethod
@@ -49,11 +53,11 @@ class ChannelAdapter(ABC):
         return cls.__name__
 
     @staticmethod
-    def dispatch_type(type):
+    def dispatch_type(type) -> ChannelAdapter:
         return TYPE_TO_CHANNEL[type]()
 
     @staticmethod
-    def dispatch_domain(domain):
+    def dispatch_domain(domain) -> ChannelAdapter:
         return DOMAIN_TO_CHANNEL[domain]()
 
     def __init_subclass__(cls, **kwargs):

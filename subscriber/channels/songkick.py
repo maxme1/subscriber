@@ -38,7 +38,7 @@ class SongKick(ChannelAdapter):
         calendar = urlunparse(ParseResult(parsed.scheme, parsed.netloc, str(Path(*parts, 'calendar')), '', '', ''))
         return ChannelData(calendar, name, image=image, url=url)
 
-    def update(self, update_url: str, channel: ChannelData) -> Iterable[PostUpdate]:
+    def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
         doc = html.fromstring(requests.get(update_url).content.decode('utf-8'))
         summary = doc.cssselect('#calendar-summary')
         if not summary:
@@ -57,7 +57,7 @@ class SongKick(ChannelAdapter):
             # text = ''.join((html.tostring(x, encoding='utf-8').decode() for x in text.getchildren()))
             suffix = link.attrib.get('href', '')
             assert suffix
-            link = f'https://www.songkick.com/{suffix}#{channel.name}'
+            link = f'https://www.songkick.com/{suffix}#{name}'
 
             desc = venue
             if time:

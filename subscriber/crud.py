@@ -3,6 +3,7 @@ from typing import Iterable
 
 from sqlalchemy.orm import Session
 
+from .celery import call_adapter_method
 from .channels import ChannelAdapter, Content
 from .models import Channel, Chat, Post, ChatPost, ChatChannel, ChatPostState, TelegramFile
 from .utils import get_or_create
@@ -16,7 +17,7 @@ def subscribe(session: Session, channel: Channel, chat_id):
 
 
 def track(session: Session, adapter: ChannelAdapter, url: str):
-    data = adapter.track(url)
+    data = call_adapter_method(adapter.name, adapter.track, url)
     if data.url is not None:
         url = data.url
 
@@ -33,16 +34,16 @@ def update_channel(session: Session, channel: Channel):
 
     count = 0
     adapter = ChannelAdapter.dispatch_type(channel.type)
-    for update in adapter.update(channel.update_url, channel):
+    for update in call_adapter_method(adapter.name, adapter.update, channel.update_url, channel.name):
         if session.query(Post).where(
-            (Post.identifier == update.id) & (Post.channel_id == channel.id)
+                (Post.identifier == update.id) & (Post.channel_id == channel.id)
         ).first() is not None:
             logger.info('Ignoring an already existing update %s for %s', update.url, channel)
             continue
 
         content = update.content
         if content is None:
-            content = adapter.scrape(update.url)
+            content = call_adapter_method(adapter.name, adapter.scrape, update.url)
         if content is None:
             content = Content()
 
