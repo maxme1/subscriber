@@ -1,4 +1,3 @@
-import contextlib
 import os
 import re
 import tempfile
@@ -72,7 +71,6 @@ def no_context(func):
 
 
 def with_session(func):
-    @contextlib.contextmanager
     def wrapper(*args):
         session = SessionLocal()
         try:

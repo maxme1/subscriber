@@ -142,9 +142,9 @@ def call_adapter_method(adapter, method, *args):
     #
     # value = result.get()
     value = delayed(adapter, method, *args)
+    if method == 'update':
+        return list(map(PostUpdate.parse_obj, value))
 
     with suppress(ValidationError):
         return ChannelData.parse_obj(value)
-    with suppress(ValidationError):
-        return Content.parse_obj(value)
-    return list(map(PostUpdate.parse_obj, value))
+    return Content.parse_obj(value)
