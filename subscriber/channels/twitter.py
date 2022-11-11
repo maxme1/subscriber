@@ -25,7 +25,7 @@ class Twitter(ChannelAdapter):
         name = Twitter.GROUP_NAME.match(path)
         if not name:
             raise ValueError(f'{path} is not a valid channel name.')
-        return ChannelData(url, name.group(1))
+        return ChannelData(update_url=url, name=name.group(1))
 
     def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
         return []
@@ -67,8 +67,8 @@ class Twitter(ChannelAdapter):
                             # take a tween screenshot
                             tweet.screenshot(file)
                             results.append(PostUpdate(
-                                link, f'https://twitter.com{link}',
-                                Content(image=STORAGE.write(file)),
+                                id=link, url=f'https://twitter.com{link}',
+                                content=Content(image=STORAGE.write(file)),
                             ))
                             break
 

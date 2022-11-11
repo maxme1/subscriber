@@ -36,7 +36,7 @@ class SongKick(ChannelAdapter):
         image = store_url(image)
 
         calendar = urlunparse(ParseResult(parsed.scheme, parsed.netloc, str(Path(*parts, 'calendar')), '', '', ''))
-        return ChannelData(calendar, name, image=image, url=url)
+        return ChannelData(update_url=calendar, name=name, image=image, url=url)
 
     def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
         doc = html.fromstring(requests.get(update_url).content.decode('utf-8'))
@@ -63,7 +63,7 @@ class SongKick(ChannelAdapter):
             if time:
                 desc += ' at ' + time
 
-            yield PostUpdate(suffix, link, Content(location, desc))
+            yield PostUpdate(id=suffix, url=link, content=Content(title=location, description=desc))
 
     def scrape(self, post_url: str) -> Content:
         raise NotImplementedError

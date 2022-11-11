@@ -26,12 +26,12 @@ class YouTube(ChannelAdapter):
         update_url = f'https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}'
 
         name = feedparser.parse(update_url)['feed']['title']
-        return ChannelData(update_url, name, image)
+        return ChannelData(update_url=update_url, name=name, image=image)
 
     def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
         for post in reversed(feedparser.parse(update_url)['entries']):
-            yield PostUpdate(post['id'], post['link'])
+            yield PostUpdate(id=post['id'], url=post['link'])
 
     def scrape(self, post_url: str) -> Content:
         fields = get_og_tags(requests.get(post_url).content.decode('utf-8'))
-        return Content(fields['title'], fields['description'], store_url(fields['image']))
+        return Content(title=fields['title'], description=fields['description'], image=store_url(fields['image']))

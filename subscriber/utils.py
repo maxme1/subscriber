@@ -11,7 +11,7 @@ from tarn import Storage, Disk
 from sqlalchemy.exc import NoResultFound, IntegrityError
 from sqlalchemy.orm import Session
 
-from subscriber.base import SessionLocal
+from .base import SessionLocal
 
 URL_PATTERN = re.compile(
     r'^(?:http|ftp)s?://'  # http:// or https://

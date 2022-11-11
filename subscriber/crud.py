@@ -1,10 +1,15 @@
 import logging
+import time
+from contextlib import suppress
 from typing import Iterable
 
+from celery.result import AsyncResult
+from celery.states import PENDING
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from .celery import call_adapter_method
-from .channels import ChannelAdapter, Content
+from .celery import delayed
+from .channels.base import ChannelAdapter, ChannelData, Content, PostUpdate
 from .models import Channel, Chat, Post, ChatPost, ChatChannel, ChatPostState, TelegramFile
 from .utils import get_or_create
 
@@ -17,7 +22,7 @@ def subscribe(session: Session, channel: Channel, chat_id):
 
 
 def track(session: Session, adapter: ChannelAdapter, url: str):
-    data = call_adapter_method(adapter.name, adapter.track, url)
+    data = call_adapter_method(adapter, adapter.track, url)
     if data.url is not None:
         url = data.url
 
@@ -34,7 +39,7 @@ def update_channel(session: Session, channel: Channel):
 
     count = 0
     adapter = ChannelAdapter.dispatch_type(channel.type)
-    for update in call_adapter_method(adapter.name, adapter.update, channel.update_url, channel.name):
+    for update in call_adapter_method(adapter, adapter.update, channel.update_url, channel.name):
         if session.query(Post).where(
                 (Post.identifier == update.id) & (Post.channel_id == channel.id)
         ).first() is not None:
@@ -43,7 +48,7 @@ def update_channel(session: Session, channel: Channel):
 
         content = update.content
         if content is None:
-            content = call_adapter_method(adapter.name, adapter.scrape, update.url)
+            content = call_adapter_method(adapter, adapter.scrape, update.url)
         if content is None:
             content = Content()
 
@@ -119,3 +124,27 @@ def wrap_image_hash(session: Session, image):
 
     file, _ = get_or_create(session, TelegramFile, hash=image)
     return file
+
+
+def call_adapter_method(adapter, method, *args):
+    if not isinstance(method, str):
+        method = method.__name__
+    if not isinstance(adapter, str):
+        adapter = adapter.name()
+
+    # start = time.time()
+    # result: AsyncResult = delayed.delay(adapter, method, *args)
+    # while result.state != PENDING:
+    #     if time.time() - start > 30:
+    #         raise TimeoutError('The task is pending for too long')
+    #
+    #     time.sleep(0.01)
+    #
+    # value = result.get()
+    value = delayed(adapter, method, *args)
+
+    with suppress(ValidationError):
+        return ChannelData.parse_obj(value)
+    with suppress(ValidationError):
+        return Content.parse_obj(value)
+    return list(map(PostUpdate.parse_obj, value))

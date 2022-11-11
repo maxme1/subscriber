@@ -20,7 +20,7 @@ class VK(ChannelAdapter):
         name = VK.GROUP_NAME.match(path)
         if not name:
             raise ValueError(f'{path} is not a valid channel name.')
-        return ChannelData(url, name.group(1))
+        return ChannelData(update_url=url, name=name.group(1))
 
     def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
         visited = set()
@@ -29,7 +29,7 @@ class VK(ChannelAdapter):
             i = element.attrib.get('data-post-id', '')
             if i.startswith('-') and i not in visited:
                 visited.add(i)
-                yield PostUpdate(i[1:], f'https://vk.com/wall{i}', Content())
+                yield PostUpdate(id=i[1:], url=f'https://vk.com/wall{i}', content=Content())
 
     def scrape(self, post_url: str) -> Content:
         return Content()
