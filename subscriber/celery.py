@@ -7,7 +7,7 @@ from pathlib import Path
 from celery import Celery
 
 from .channels import ChannelAdapter
-from .utils import with_session, OutdatedCode
+from .utils import OutdatedCode
 
 logger = logging.getLogger(__name__)
 
@@ -18,15 +18,15 @@ for _file in Path(__file__).resolve().parent.parent.glob('**/*.py'):
     with open(_file, 'rb') as _fd:
         _hasher.update(_fd.read())
 
-CODE_HASH: bytes = _hasher.digest()
+CODE_HASH: str = _hasher.hexdigest()
 
 
-@app.task
-@with_session
-def update(session):
-    from .crud import update_base
-
-    update_base(session)
+# @app.task
+# @with_session
+# def update(session):
+#     from .crud import update_base
+#
+#     update_base(session)
 
 
 @app.task
