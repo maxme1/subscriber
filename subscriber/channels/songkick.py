@@ -6,7 +6,7 @@ import requests
 from lxml import html
 
 from .base import Content, ChannelAdapter, ChannelData, PostUpdate
-from ..utils import store_url
+from ..utils import url_to_base64
 
 
 class SongKick(ChannelAdapter):
@@ -33,7 +33,7 @@ class SongKick(ChannelAdapter):
             image = f'https:{image}'
         else:
             image = f'https://www.songkick.com/{image}'
-        image = store_url(image)
+        image = url_to_base64(image)
 
         calendar = urlunparse(ParseResult(parsed.scheme, parsed.netloc, str(Path(*parts, 'calendar')), '', '', ''))
         return ChannelData(update_url=calendar, name=name, image=image, url=url)

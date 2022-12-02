@@ -17,6 +17,7 @@ services:
     environment:
       - STORAGE_PATH=/storage
       - LOGS_PATH=/logs
+      - REDIS=redis
 
   # db
   db:
@@ -30,18 +31,18 @@ services:
     expose:
       - 5432
 
-#  pgadmin:
-#    container_name: pgadmin_container
-#    image: dpage/pgadmin4
-#    environment:
-#      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-#      PGADMIN_DEFAULT_PASSWORD: admin
-#      PGADMIN_CONFIG_SERVER_MODE: 'False'
-#
-#    volumes:
-#      - /db:/var/lib
-#    ports:
-#      - '127.0.0.1:5050:80'
+  #  pgadmin:
+  #    container_name: pgadmin_container
+  #    image: dpage/pgadmin4
+  #    environment:
+  #      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+  #      PGADMIN_DEFAULT_PASSWORD: admin
+  #      PGADMIN_CONFIG_SERVER_MODE: 'False'
+  #
+  #    volumes:
+  #      - /db:/var/lib
+  #    ports:
+  #      - '127.0.0.1:5050:80'
 
   # workers
   celery:
@@ -69,11 +70,14 @@ services:
       - STORAGE_PATH=/storage
       - DATABASE_PATH=/db/db.sqlite3
       - LOGS_PATH=/logs
+      - REDIS=redis
 
   redis:
     image: 'redis:6.2'
     expose:
       - '6379'
+    ports:
+      - '10.76.0.1:6379:6379'
 
 volumes:
   static_volume:

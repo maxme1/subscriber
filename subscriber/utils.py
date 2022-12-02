@@ -1,11 +1,11 @@
+import base64
 import os
 import re
 import tempfile
-from pathlib import Path
 from typing import Union
-from urllib.request import urlretrieve
 
 import lxml.html
+import requests
 from tarn import Storage, Disk
 from sqlalchemy.exc import NoResultFound, IntegrityError
 from sqlalchemy.orm import Session
@@ -56,14 +56,24 @@ def get_og_tags(html: Union[str, bytes]):
     return res
 
 
-def store_url(url: str):
+def file_to_base64(path):
+    with open(path, 'rb') as fd:
+        return base64.b64encode(fd.read())
+
+
+def store_base64(encoded):
+    with tempfile.NamedTemporaryFile() as file:
+        with open(file, 'wb') as fd:
+            fd.write(base64.b64decode(encoded))
+
+        return STORAGE.write(file)
+
+
+def url_to_base64(url: str):
     if url is None:
         return
 
-    with tempfile.TemporaryDirectory() as tmp:
-        file = Path(tmp, 'file')
-        urlretrieve(url, file)
-        return STORAGE.write(file)
+    return base64.b64encode(requests.get(url).content)
 
 
 def no_context(func):

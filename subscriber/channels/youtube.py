@@ -6,7 +6,7 @@ from lxml import html
 import requests
 
 from .base import Content, ChannelData, ChannelAdapter, PostUpdate
-from ..utils import get_og_tags, store_url
+from ..utils import get_og_tags, url_to_base64
 
 
 class YouTube(ChannelAdapter):
@@ -20,7 +20,7 @@ class YouTube(ChannelAdapter):
             raise ValueError('This not a valid youtube channel.')
 
         tags = get_og_tags(body)
-        image = store_url(tags.get('image'))
+        image = url_to_base64(tags.get('image'))
 
         channel_id = channel_ids[0][0]
         update_url = f'https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}'
@@ -34,4 +34,4 @@ class YouTube(ChannelAdapter):
 
     def scrape(self, post_url: str) -> Content:
         fields = get_og_tags(requests.get(post_url).content.decode('utf-8'))
-        return Content(title=fields['title'], description=fields['description'], image=store_url(fields['image']))
+        return Content(title=fields['title'], description=fields['description'], image=url_to_base64(fields['image']))

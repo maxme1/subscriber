@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from .celery import delayed
 from .channels.base import ChannelAdapter, ChannelData, Content, PostUpdate
 from .models import Channel, Chat, Post, ChatPost, ChatChannel, ChatPostState, TelegramFile
-from .utils import get_or_create
+from .utils import get_or_create, store_base64
 
 logger = logging.getLogger(__name__)
 
@@ -22,12 +22,13 @@ def subscribe(session: Session, channel: Channel, chat_id):
 
 
 def track(session: Session, adapter: ChannelAdapter, url: str):
-    data = call_adapter_method(adapter, adapter.track, url)
+    # data = call_adapter_method(adapter, adapter.track, url)
+    data = adapter.track(url)
     if data.url is not None:
         url = data.url
 
     channel, created = get_or_create(
-        session, Channel, defaults={'channel_url': url, 'image': wrap_image_hash(session, data.image)},
+        session, Channel, defaults={'channel_url': url, 'image': wrap_base64_to_hash(session, data.image)},
         update_url=data.update_url, name=data.name, type=adapter.name(),
     )
     return channel, created
@@ -39,6 +40,7 @@ def update_channel(session: Session, channel: Channel):
 
     count = 0
     adapter = ChannelAdapter.dispatch_type(channel.type)
+    # TODO: this function needs to be async
     for update in call_adapter_method(adapter, adapter.update, channel.update_url, channel.name):
         if session.query(Post).where(
                 (Post.identifier == update.id) & (Post.channel_id == channel.id)
@@ -55,7 +57,7 @@ def update_channel(session: Session, channel: Channel):
         # create the post
         post = Post(
             identifier=update.id, channel=channel, url=update.url, title=content.title or '',
-            image=wrap_image_hash(session, content.image), description=content.description or '',
+            image=wrap_base64_to_hash(session, content.image), description=content.description or '',
         )
         session.add(post)
         session.flush()
@@ -118,30 +120,33 @@ def remove_channel(session: Session, chat_id, channel_pk):
     ).delete(synchronize_session=False)
 
 
-def wrap_image_hash(session: Session, image):
+def wrap_base64_to_hash(session: Session, image):
     if image is None:
         return
 
+    image = store_base64(image)
     file, _ = get_or_create(session, TelegramFile, hash=image)
     return file
 
 
-def call_adapter_method(adapter, method, *args):
+def call_adapter_method(adapter: ChannelAdapter, method, *args):
     if not isinstance(method, str):
         method = method.__name__
-    if not isinstance(adapter, str):
-        adapter = adapter.name()
 
-    # start = time.time()
-    # result: AsyncResult = delayed.delay(adapter, method, *args)
-    # while result.state != PENDING:
-    #     if time.time() - start > 30:
-    #         raise TimeoutError('The task is pending for too long')
-    #
-    #     time.sleep(0.01)
-    #
-    # value = result.get()
-    value = delayed(adapter, method, *args)
+    start = time.time()
+    result: AsyncResult = delayed.apply_async(
+        args=(adapter.name(), method, *args),
+        queue=adapter.queue,
+    )
+    while not result.ready():
+        time.sleep(0.01)
+
+        if time.time() - start > 30 and result.state == PENDING:
+            result.forget()
+            raise TimeoutError('The task is pending for too long')
+
+    value = result.get()
+
     if method == 'update':
         return list(map(PostUpdate.parse_obj, value))
 

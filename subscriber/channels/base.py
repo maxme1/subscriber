@@ -12,6 +12,7 @@ DOMAIN_TO_CHANNEL = {}
 class Content(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    # an optional base64-encoded image
     image: Optional[str] = None
 
 
@@ -20,9 +21,9 @@ class ChannelData(BaseModel):
     update_url: str
     # the channel name
     name: str
-    # an optional image hash
+    # an optional base64-encoded image
     image: Optional[str] = None
-    # a standardized channel url (optional)
+    # an optional standardized channel url
     url: Optional[str] = None
 
 
@@ -34,6 +35,7 @@ class PostUpdate(BaseModel):
 
 class ChannelAdapter(ABC):
     domain: str
+    queue: str = 'main'
     add_name: bool = False
 
     @abstractmethod

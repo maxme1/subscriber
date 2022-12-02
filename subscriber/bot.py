@@ -10,7 +10,7 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageH
 
 from .celery import update
 from .channels import DOMAIN_TO_CHANNEL, ChannelAdapter
-from .crud import get_new_posts, get_channels, remove_channel, track, subscribe
+from .crud import get_new_posts, get_channels, remove_channel, track, subscribe, update_base
 from .models import Chat, Post, TelegramFile, Channel, ChatPost, ChatPostState
 from .ops import delete_message
 from .utils import URL_PATTERN, drop_prefix, STORAGE, no_context, with_session
@@ -202,6 +202,7 @@ def make_updater(token, update_interval, crawler_interval) -> Updater:
 
     job_queue.run_repeating(send_new_posts, interval=update_interval, first=5)
     job_queue.run_repeating(remove_old_posts, interval=update_interval, first=10)
-    job_queue.run_repeating(lambda context: update.delay().forget(), interval=crawler_interval, first=30)
+    # job_queue.run_repeating(lambda context: update.delay().forget(), interval=crawler_interval, first=30)
+    job_queue.run_repeating(lambda context: with_session(update_base)(), interval=crawler_interval, first=30)
 
     return updater

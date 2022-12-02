@@ -12,11 +12,12 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.remote.webelement import WebElement
 
 from .base import Content, ChannelAdapter, ChannelData, PostUpdate
-from ..utils import STORAGE
+from ..utils import file_to_base64
 
 
 class Twitter(ChannelAdapter):
     domain = 'twitter.com'
+    queue = 'selenium'
 
     GROUP_NAME = re.compile(r'^/(\w+)$', flags=re.IGNORECASE)
 
@@ -28,7 +29,6 @@ class Twitter(ChannelAdapter):
         return ChannelData(update_url=url, name=name.group(1))
 
     def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
-        return []
         options = Options()
         options.headless = True
         profile = FirefoxProfile()
@@ -68,7 +68,7 @@ class Twitter(ChannelAdapter):
                             tweet.screenshot(file)
                             results.append(PostUpdate(
                                 id=link, url=f'https://twitter.com{link}',
-                                content=Content(image=STORAGE.write(file)),
+                                content=Content(image=file_to_base64(file)),
                             ))
                             break
 

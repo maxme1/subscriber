@@ -6,7 +6,7 @@ import requests
 from lxml import html
 
 from .base import Content, ChannelAdapter, ChannelData, PostUpdate
-from ..utils import store_url
+from ..utils import url_to_base64
 
 
 class VK(ChannelAdapter):
@@ -46,6 +46,6 @@ class VK(ChannelAdapter):
         image = post.cssselect(f'.thumb_link>[data-src_big]')
         if image:
             image = image[0]
-            kw['image'] = store_url(image.attrib['data-src_big'])
+            kw['image'] = url_to_base64(image.attrib['data-src_big'])
 
         return Content(**kw)

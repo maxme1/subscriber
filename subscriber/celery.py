@@ -1,11 +1,13 @@
 import json
+import os
 
 from celery import Celery
 
 from .channels import ChannelAdapter
 from .utils import with_session
 
-app = Celery('subscriber', broker='redis://redis', backend='redis://redis')
+broker = 'redis://' + os.environ['REDIS']
+app = Celery('subscriber', broker=broker, backend=broker)
 
 
 @app.task
