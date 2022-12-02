@@ -40,6 +40,6 @@ def delayed(code_hash: str, kind: str, method_name: str, *args):
 
     value = method(*args)
     if method_name == 'update':
-        return [json.loads(x.json()) for x in value]
+        return CODE_HASH, [json.loads(x.json()) for x in value]
 
     return CODE_HASH, json.loads(value.json())

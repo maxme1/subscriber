@@ -142,6 +142,7 @@ def call_adapter_method(adapter: ChannelAdapter, method, *args):
         time.sleep(0.01)
 
         if time.time() - start > 30 and result.state == PENDING:
+            result.revoke()
             result.forget()
             raise TimeoutError('The task is pending for too long')
 
