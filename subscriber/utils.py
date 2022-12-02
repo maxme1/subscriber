@@ -3,6 +3,7 @@ import os
 import re
 import tempfile
 from functools import cache
+from pathlib import Path
 from typing import Union
 
 import lxml.html
@@ -67,11 +68,17 @@ def file_to_base64(path):
 
 
 def store_base64(encoded):
-    with tempfile.NamedTemporaryFile() as file:
+    with tempfile.TemporaryDirectory() as folder:
+        file = Path(folder, 'file')
+
         with open(file, 'wb') as fd:
             fd.write(base64.b64decode(encoded))
 
         return build_storage().write(file)
+
+
+def storage_resolve(key):
+    return build_storage().resolve(key)
 
 
 def url_to_base64(url: str):

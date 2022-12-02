@@ -8,12 +8,11 @@ from sqlalchemy.orm import Session
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 
-from .celery import update
 from .channels import DOMAIN_TO_CHANNEL, ChannelAdapter
 from .crud import get_new_posts, get_channels, remove_channel, track, subscribe, update_base
 from .models import Chat, Post, TelegramFile, Channel, ChatPost, ChatPostState
 from .ops import delete_message
-from .utils import URL_PATTERN, drop_prefix, STORAGE, no_context, with_session
+from .utils import URL_PATTERN, drop_prefix, storage_resolve, no_context, with_session
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +125,7 @@ def send_post(post: Post, channel: Channel, adapter: ChannelAdapter, chat: Chat,
 
     if image:
         if image.identifier is None:
-            with open(STORAGE.resolve(image.hash), 'rb') as img:
+            with open(storage_resolve(image.hash), 'rb') as img:
                 message = bot.send_photo(
                     chat_id, img, parse_mode=ParseMode.HTML,
                     caption=text, reply_markup=markup

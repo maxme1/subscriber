@@ -7,9 +7,18 @@ from sqlalchemy.orm import sessionmaker
 
 # TODO: refactor this
 @cache
+def make_engine():
+    return create_engine('postgresql://postgres:postgres@db:5432/subscriber')
+
+
+@cache
+def session_maker():
+    return sessionmaker(autocommit=False, autoflush=False, bind=make_engine())
+
+
+@cache
 def SessionLocal():
-    engine = create_engine('postgresql://postgres:postgres@db:5432/subscriber')
-    return sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    return session_maker()()
 
 
 Base = declarative_base()
