@@ -109,3 +109,7 @@ def with_session(func):
 
     wrapper.__name__ = func.__name__
     return wrapper
+
+
+class OutdatedCode(Exception):
+    pass

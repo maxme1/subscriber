@@ -8,10 +8,10 @@ from celery.states import PENDING
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from .celery import delayed
+from .celery import delayed, CODE_HASH
 from .channels.base import ChannelAdapter, ChannelData, Content, PostUpdate
 from .models import Channel, Chat, Post, ChatPost, ChatChannel, ChatPostState, TelegramFile
-from .utils import get_or_create, store_base64
+from .utils import get_or_create, store_base64, OutdatedCode
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +135,7 @@ def call_adapter_method(adapter: ChannelAdapter, method, *args):
 
     start = time.time()
     result: AsyncResult = delayed.apply_async(
-        args=(adapter.name(), method, *args),
+        args=(CODE_HASH, adapter.name(), method, *args),
         queue=adapter.queue,
     )
     while not result.ready():
@@ -145,7 +145,9 @@ def call_adapter_method(adapter: ChannelAdapter, method, *args):
             result.forget()
             raise TimeoutError('The task is pending for too long')
 
-    value = result.get()
+    code_hash, value = result.get()
+    if code_hash != CODE_HASH:
+        raise OutdatedCode(code_hash)
 
     if method == 'update':
         return list(map(PostUpdate.parse_obj, value))

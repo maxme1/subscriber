@@ -1,13 +1,24 @@
+import hashlib
 import json
+import logging
 import os
+from pathlib import Path
 
 from celery import Celery
 
 from .channels import ChannelAdapter
-from .utils import with_session
+from .utils import with_session, OutdatedCode
+
+logger = logging.getLogger(__name__)
 
 broker = 'redis://' + os.environ['REDIS']
 app = Celery('subscriber', broker=broker, backend=broker)
+_hasher = hashlib.sha256()
+for _file in Path(__file__).resolve().parent.parent.glob('**/*.py'):
+    with open(_file, 'rb') as _fd:
+        _hasher.update(_fd.read())
+
+CODE_HASH: bytes = _hasher.digest()
 
 
 @app.task
@@ -19,7 +30,11 @@ def update(session):
 
 
 @app.task
-def delayed(kind: str, method_name: str, *args):
+def delayed(code_hash: str, kind: str, method_name: str, *args):
+    if code_hash != CODE_HASH:
+        logger.critical('You version of the worker is outdated. Please upgrade')
+        raise OutdatedCode(CODE_HASH)
+
     adapter = ChannelAdapter.dispatch_type(kind)
     method = getattr(adapter, method_name)
 
@@ -27,4 +42,4 @@ def delayed(kind: str, method_name: str, *args):
     if method_name == 'update':
         return [json.loads(x.json()) for x in value]
 
-    return json.loads(value.json())
+    return CODE_HASH, json.loads(value.json())
