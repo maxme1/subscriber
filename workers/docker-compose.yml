@@ -1,0 +1,10 @@
+version: '3.7'
+
+services:
+  celery:
+    build: ..
+    command: ./workers/run-worker.sh
+    shm_size: '2gb'
+
+    environment:
+      - REDIS=10.76.0.1

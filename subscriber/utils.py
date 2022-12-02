@@ -2,6 +2,7 @@ import base64
 import os
 import re
 import tempfile
+from functools import cache
 from typing import Union
 
 import lxml.html
@@ -21,7 +22,11 @@ URL_PATTERN = re.compile(
     r'(?:/?|[/?]\S+)$',
     flags=re.IGNORECASE
 )
-STORAGE = Storage(Disk(os.environ['STORAGE_PATH']))
+
+
+@cache
+def build_storage():
+    return Storage(Disk(os.environ['STORAGE_PATH']))
 
 
 def drop_prefix(x, prefix):
@@ -66,7 +71,7 @@ def store_base64(encoded):
         with open(file, 'wb') as fd:
             fd.write(base64.b64decode(encoded))
 
-        return STORAGE.write(file)
+        return build_storage().write(file)
 
 
 def url_to_base64(url: str):
