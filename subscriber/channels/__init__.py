@@ -3,3 +3,4 @@ from .twitter import Twitter
 from .youtube import YouTube
 from .vk import VK
 from .songkick import SongKick
+from .grand_challenge import GrandChallenge
