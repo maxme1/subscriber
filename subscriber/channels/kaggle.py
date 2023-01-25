@@ -5,7 +5,7 @@ import kaggle.api
 from .base import Content, ChannelAdapter, ChannelData, PostUpdate
 
 
-class GrandChallenge(ChannelAdapter):
+class Kaggle(ChannelAdapter):
     domain = 'kaggle.com'
 
     def track(self, url: str) -> ChannelData:
