@@ -23,12 +23,12 @@ def start(update: Update, context: CallbackContext):
         # language=Markdown
         r'''
 Hi\! I can notify you about
- - new videos in [YouTube](https://www.youtube.com) channels
- - new posts in [Twitter](https://twitter.com/) feeds
- - new concerts for artists and bands from [SongKick](https://songkick.com/) 
- - new posts from [VK](https://vk.com/) public channels
- - new [Kaggle](https://www.kaggle.com/) competitions
- - new [GrandChallenge](https://grand-challenge.org/) competitions
+ • new videos in [YouTube](https://www.youtube.com) channels
+ • new posts in [Twitter](https://twitter.com/) feeds
+ • new concerts for artists and bands from [SongKick](https://songkick.com/) 
+ • new posts from [VK](https://vk.com/) public channels
+ • new [Kaggle](https://www.kaggle.com/) competitions
+ • new [GrandChallenge](https://grand-challenge.org/) competitions
 
 Just send me a link and let's get started\!''',
         parse_mode=ParseMode.MARKDOWN_V2, disable_web_page_preview=True,
