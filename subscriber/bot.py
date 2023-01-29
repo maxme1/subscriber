@@ -18,7 +18,21 @@ logger = logging.getLogger(__name__)
 
 
 def start(update: Update, context: CallbackContext):
-    context.bot.send_message(update.message.chat.id, 'Hi! Send me a link to a channel and I will subscribe you to it.')
+    context.bot.send_message(
+        update.message.chat.id,
+        # language=Markdown
+        '''
+Hi! I can notify you about
+ - new videos in [YouTube](https://www.youtube.com) channels
+ - new posts in [Twitter](https://twitter.com/) feeds
+ - new concerts for artists and bands from [SongKick](https://songkick.com/) 
+ - new posts from [VK](https://vk.com/) public channels
+ - new [Kaggle](https://www.kaggle.com/) competitions
+ - new [GrandChallenge](https://grand-challenge.org/) competitions
+
+Just send me a link and let's get started!''',
+        parse_mode=ParseMode.MARKDOWN_V2, disable_web_page_preview=True,
+    )
 
 
 @no_context

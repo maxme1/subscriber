@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 
 broker = 'redis://' + os.environ['REDIS']
 app = Celery('subscriber', broker=broker, backend=broker)
+# remove unused tasks after 10 minutes
+app.conf.result_expires = 600
+
 _hasher = hashlib.sha256()
 for _file in sorted(Path(__file__).resolve().parent.glob('**/*.py')):
     with open(_file, 'rb') as _fd:
