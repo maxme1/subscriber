@@ -1,31 +1,47 @@
 import enum
 
-from sqlalchemy import Column, ForeignKey, Integer, Unicode, DateTime, func, UniqueConstraint, Enum
+from pydantic import BaseModel, Extra
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, Unicode, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
 from .base import Base
 
 
-class TelegramFile(Base):
-    __tablename__ = 'TelegramFile'
+class NoExtra(BaseModel):
+    class Config:
+        extra = Extra.forbid
+
+
+Identifier = str
+
+
+class FileTable(Base):
+    __tablename__ = 'File'
     id = Column(Integer, primary_key=True)
 
-    hash = Column(Unicode(64), nullable=False, unique=True)
-    identifier = Column(Unicode, nullable=True, unique=True)
+    # internal id
+    internal = Column(Unicode(64), nullable=False, unique=True)
+    # ids for different destinations
+    telegram = Column(Unicode, nullable=True, unique=True)
 
 
-class Channel(Base):
-    __tablename__ = 'Channel'
+class File(NoExtra):
+    internal: Identifier
+    telegram: Identifier | None
+
+
+class SourceTable(Base):
+    __tablename__ = 'Source'
     id = Column(Integer, primary_key=True)
 
+    url = Column(Unicode(1000), nullable=False, unique=True)
     update_url = Column(Unicode(1000), nullable=False, unique=True)
-    channel_url = Column(Unicode(1000), nullable=False, unique=True)
     name = Column(Unicode(1000), nullable=False)
-    image_id = Column(ForeignKey(TelegramFile.id), nullable=True)
-    image = relationship(TelegramFile)
+    image_id = Column(ForeignKey(FileTable.id), nullable=True)
+    image = relationship(FileTable)
 
-    chats = relationship('Chat', secondary='ChatChannel', back_populates='channels')
-    posts = relationship('Post', back_populates='channel')
+    chats = relationship('ChatTable', secondary='ChatToSource', back_populates='sources')
+    posts = relationship('PostTable', back_populates='source')
 
     # internal
     type = Column(Unicode, nullable=False)
@@ -34,13 +50,21 @@ class Channel(Base):
         return f'{self.name} - {self.type}'
 
 
-class Chat(Base):
+class Source(BaseModel):
+    pk: int
+    name: str
+    type: str
+    update_url: str
+
+
+class ChatTable(Base):
     __tablename__ = 'Chat'
     id = Column(Integer, primary_key=True)
 
     identifier = Column(Unicode, nullable=False, unique=True)
+    type = Column(Unicode, nullable=False)
 
-    channels = relationship('Channel', secondary='ChatChannel', back_populates='chats')
+    sources = relationship('SourceTable', secondary='ChatToSource', back_populates='chats')
     chat_posts = relationship('ChatPost', back_populates='chat')
 
     # posts = relationship('Post', secondary='ChatPost', back_populates='chats')
@@ -49,9 +73,9 @@ class Chat(Base):
         return self.identifier
 
 
-class Post(Base):
+class PostTable(Base):
     __tablename__ = 'Post'
-    __table_args__ = UniqueConstraint('identifier', 'channel_id'),
+    __table_args__ = UniqueConstraint('identifier', 'source_id'),
     id = Column(Integer, primary_key=True)
     created = Column(DateTime, nullable=False, server_default=func.now())
 
@@ -59,26 +83,33 @@ class Post(Base):
     url = Column(Unicode, nullable=False)
     title = Column(Unicode, nullable=True)
     description = Column(Unicode, nullable=True)
-    image_id = Column(ForeignKey(TelegramFile.id), nullable=True)
-    image = relationship(TelegramFile)
+    image_id = Column(ForeignKey(FileTable.id), nullable=True)
+    image = relationship(FileTable)
 
-    channel_id = Column(ForeignKey(Channel.id, ondelete='CASCADE'), nullable=False)
-    channel = relationship(Channel, back_populates='posts')
+    source_id = Column(ForeignKey(SourceTable.id, ondelete='CASCADE'), nullable=False)
+    source = relationship(SourceTable, back_populates='posts')
 
     chat_posts = relationship('ChatPost', back_populates='post')
 
 
+class Post(BaseModel):
+    title: str
+    description: str
+    url: str
+    image: File | None
+
+
 # secondary
 
-class ChatChannel(Base):
-    __tablename__ = 'ChatChannel'
-    __table_args__ = UniqueConstraint('chat_id', 'channel_id'),
+class ChatToSource(Base):
+    __tablename__ = 'ChatToSource'
+    __table_args__ = UniqueConstraint('chat_id', 'source_id'),
     id = Column(Integer, primary_key=True)
 
-    chat_id = Column(ForeignKey(Chat.id, ondelete='CASCADE'), nullable=False)
-    chat = relationship(Chat, viewonly=True)
-    channel_id = Column(ForeignKey(Channel.id, ondelete='CASCADE'), nullable=False)
-    channel = relationship(Channel, viewonly=True)
+    chat_id = Column(ForeignKey(ChatTable.id, ondelete='CASCADE'), nullable=False)
+    chat = relationship(ChatTable, viewonly=True)
+    source_id = Column(ForeignKey(SourceTable.id, ondelete='CASCADE'), nullable=False)
+    source = relationship(SourceTable, viewonly=True)
 
 
 class ChatPostState(enum.Enum):
@@ -91,9 +122,10 @@ class ChatPost(Base):
     id = Column(Integer, primary_key=True)
 
     state = Column(Enum(ChatPostState), nullable=False)
-    message_id = Column(Unicode, nullable=True)
+    created = Column(DateTime, nullable=False, server_default=func.now())
 
-    chat_id = Column(ForeignKey(Chat.id, ondelete='CASCADE'), nullable=False)
-    chat = relationship(Chat, back_populates='chat_posts')
-    post_id = Column(ForeignKey(Post.id, ondelete='CASCADE'), nullable=False)
-    post = relationship(Post, back_populates='chat_posts')
+    message_id = Column(Unicode, nullable=False)
+    chat_id = Column(ForeignKey(ChatTable.id, ondelete='CASCADE'), nullable=False)
+    chat = relationship(ChatTable, back_populates='chat_posts')
+    post_id = Column(ForeignKey(PostTable.id, ondelete='CASCADE'), nullable=False)
+    post = relationship(PostTable, back_populates='chat_posts')

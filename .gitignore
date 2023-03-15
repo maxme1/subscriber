@@ -14,3 +14,4 @@ subscriber/lib64
 subscriber/pyvenv.cfg
 subscriber/share/
 geckodriver.log
+.env*

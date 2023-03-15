@@ -2,18 +2,18 @@ from collections import Counter
 from typing import Iterable
 
 import feedparser
-from lxml import html
 import requests
+from lxml import html
 
-from .base import Content, ChannelData, ChannelAdapter, PostUpdate
 from ..utils import get_og_tags, url_to_base64
+from .base import ChannelAdapter, ChannelData, Content, PostUpdate
 
 
 class YouTube(ChannelAdapter):
     domain = 'youtube.com'
 
     def track(self, url: str) -> ChannelData:
-        body = requests.get(url, cookies=dict(CONSENT='YES+999')).content.decode('utf-8')
+        body = requests.get(url, cookies={'CONSENT': 'YES+999'}).content.decode('utf-8')
         doc = html.fromstring(body)
         channel_ids = Counter([d.attrib['content'] for d in doc.xpath('//meta[@itemprop="channelId"]')]).most_common(1)
         if not channel_ids:
@@ -24,9 +24,10 @@ class YouTube(ChannelAdapter):
 
         channel_id = channel_ids[0][0]
         update_url = f'https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}'
+        normalized_url = f'https://www.youtube.com/channel/{channel_id}'
 
         name = feedparser.parse(update_url)['feed']['title']
-        return ChannelData(update_url=update_url, name=name, image=image)
+        return ChannelData(update_url=update_url, name=name, image=image, url=normalized_url)
 
     def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
         for post in reversed(feedparser.parse(update_url)['entries']):

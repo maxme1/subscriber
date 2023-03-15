@@ -5,8 +5,8 @@ from urllib.parse import urlparse
 import requests
 from lxml import html
 
-from .base import Content, ChannelAdapter, ChannelData, PostUpdate
 from ..utils import url_to_base64
+from .base import ChannelAdapter, ChannelData, Content, PostUpdate
 
 
 class VK(ChannelAdapter):
@@ -36,14 +36,14 @@ class VK(ChannelAdapter):
 
         doc = html.fromstring(requests.get(post_url).content.decode('utf-8'))
         _, i = post_url.split('/wall-')
-        post, = [x for x in doc.cssselect('.wi_body')]
+        post, = doc.cssselect('.wi_body')
         kw = {}
 
         text = post.cssselect('.pi_text')
         if text:
             kw['description'] = text[0].text_content()
 
-        image = post.cssselect(f'.thumb_link>[data-src_big]')
+        image = post.cssselect('.thumb_link>[data-src_big]')
         if image:
             image = image[0]
             kw['image'] = url_to_base64(image.attrib['data-src_big'])
