@@ -4,8 +4,8 @@ from typing import Iterable
 import requests
 from lxml import html
 
-from .base import Content, ChannelAdapter, ChannelData, PostUpdate
 from ..utils import url_to_base64
+from .base import ChannelAdapter, ChannelData, Content, PostUpdate
 
 
 class GrandChallenge(ChannelAdapter):

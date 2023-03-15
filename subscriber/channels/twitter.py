@@ -1,9 +1,9 @@
 import re
 import tempfile
+import time
 from pathlib import Path
 from typing import Iterable
 from urllib.parse import urlparse
-import time
 
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
@@ -11,8 +11,8 @@ from selenium.webdriver import FirefoxProfile
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.remote.webelement import WebElement
 
-from .base import Content, ChannelAdapter, ChannelData, PostUpdate
 from ..utils import file_to_base64
+from .base import ChannelAdapter, ChannelData, Content, PostUpdate
 
 
 class Twitter(ChannelAdapter):
@@ -65,9 +65,11 @@ class Twitter(ChannelAdapter):
 
                         if '/status/' in link:
                             # take a tween screenshot
+                            if not link.startswith('https://twitter.com'):
+                                link = 'https://twitter.com' + link
                             tweet.screenshot(file)
                             results.append(PostUpdate(
-                                id=link, url=f'https://twitter.com{link}',
+                                id=link, url=link,
                                 content=Content(image=file_to_base64(file)),
                             ))
                             break
@@ -87,7 +89,7 @@ class Twitter(ChannelAdapter):
     def _get_tweets(driver):
         tweets = driver.find_elements_by_css_selector('[data-testid=tweet]')
         if tweets:
-            driver.execute_script("window.stop();")
+            driver.execute_script('window.stop();')
             tweets = driver.find_elements_by_css_selector('[data-testid=tweet]')
             assert tweets
         return tweets

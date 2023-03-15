@@ -8,11 +8,7 @@ from typing import Union
 
 import lxml.html
 import requests
-from tarn import Storage, Disk
-from sqlalchemy.exc import NoResultFound, IntegrityError
-from sqlalchemy.orm import Session
-
-from .base import SessionLocal
+from tarn import Disk, Storage
 
 URL_PATTERN = re.compile(
     r'^(?:http|ftp)s?://'  # http:// or https://
@@ -33,22 +29,6 @@ def build_storage():
 def drop_prefix(x, prefix):
     assert x.startswith(prefix), x
     return x[len(prefix):]
-
-
-def get_or_create(session: Session, model, defaults: dict = None, **kwargs):
-    try:
-        return session.query(model).filter_by(**kwargs).one(), False
-    except NoResultFound:
-        kwargs.update(defaults or {})
-        try:
-            with session.begin_nested():
-                created = model(**kwargs)
-                session.add(created)
-                session.flush()
-                return created, True
-
-        except IntegrityError:
-            return session.query(model).filter_by(**kwargs).one(), False
 
 
 def get_og_tags(html: Union[str, bytes]):
@@ -86,30 +66,3 @@ def url_to_base64(url: str):
         return
 
     return base64.b64encode(requests.get(url).content)
-
-
-def no_context(func):
-    return lambda update, context: func(update)
-
-
-def with_session(func):
-    def wrapper(*args):
-        session = SessionLocal()
-        try:
-            value = func(*args, session)
-            session.commit()
-            return value
-
-        except Exception:
-            session.rollback()
-            raise
-
-        finally:
-            session.close()
-
-    wrapper.__name__ = func.__name__
-    return wrapper
-
-
-class OutdatedCode(Exception):
-    pass

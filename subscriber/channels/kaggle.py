@@ -1,8 +1,6 @@
 from typing import Iterable
 
-import kaggle.api
-
-from .base import Content, ChannelAdapter, ChannelData, PostUpdate
+from .base import ChannelAdapter, ChannelData, Content, PostUpdate
 
 
 class Kaggle(ChannelAdapter):
@@ -16,6 +14,9 @@ class Kaggle(ChannelAdapter):
         )
 
     def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
+        # FIXME
+        import kaggle.api
+
         for competition in kaggle.api.competitions_list():
             yield PostUpdate(
                 id=str(competition.id), url=competition.url,

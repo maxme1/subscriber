@@ -1,25 +1,25 @@
 ## Supported commands
 
 ```
+start - show a greeting message
 list - show your subscriptions
 delete - choose subscriptions to delete
 ```
 
-### Migrating the DB
+## Running the bot
 
-E.g.
+### Preparation
 
-```python
-from playhouse.migrate import *
+1. Choose a root for your volumes and point the `VOLUMES_ROOT` env variable to it
+2. Create the `db`, `logs` and `storage` folders inside the root
+3. Place a `.env` file in the `services` folder and define there the env variables:
+    - `TELEGRAM_TOKEN` - the Telegram bot token. Use @botfather to get one
+    - `KAGGLE_USERNAME`, `KAGGLE_KEY` - [your kaggle API credentials](https://github.com/Kaggle/kaggle-api#api-credentials)
 
-from subscriber.database import DATABASE
+### Run
 
-migrator = SqliteMigrator(DATABASE)
-
-migrate(
-    migrator.add_column('channel', 'image', CharField(default='')),
-)
-
+```
+docker-compose up --build
 ```
 
 ### Troubleshooting
@@ -31,16 +31,3 @@ Error: GDK_BACKEND does not match available displays
 ```
 
 Fix: `https://stackoverflow.com/a/51162392`
-
-## Running bot on a machine
-
-### Preparation
-
-- database db.sqlite3 in /dbs/subscriber/ directory
-- env file /secret/subscriber/.env with specified env variable TOKEN which contain telegram token
-
-### Run
-
-```
-docker-compose up --build --detach
-```

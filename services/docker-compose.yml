@@ -1,0 +1,98 @@
+version: "3.9"
+
+x-common-variables: &common-variables
+  LOGS_PATH: /logs
+  RABBIT_URL: 'amqp://guest:guest@rabbit/'
+  POSTGRES_URL: 'postgres:postgres@db:5432/subscriber'
+
+services:
+  router:
+    depends_on: [ 'db', 'rabbitmq' ]
+    build:
+      dockerfile: services/main/Dockerfile
+      context: ..
+
+    volumes:
+      - storage:/storage
+      - logs:/logs
+
+    environment:
+      <<: *common-variables
+      STORAGE_PATH: /storage
+
+    command: python router.py
+    restart: on-failure
+
+  telegram:
+    depends_on: [ 'db', 'rabbitmq' ]
+    build:
+      dockerfile: services/main/Dockerfile
+      context: ..
+
+    volumes:
+      - storage:/storage
+      - logs:/logs
+
+    environment:
+      <<: *common-variables
+      STORAGE_PATH: /storage
+      TELEGRAM_TOKEN: ${TELEGRAM_TOKEN}
+
+    command: python tg.py
+    restart: on-failure
+
+  crawler:
+    depends_on: [ 'db', 'rabbitmq' ]
+    build:
+      dockerfile: services/crawler/Dockerfile
+      context: ..
+
+    volumes:
+      - logs:/logs
+
+    environment:
+      <<: *common-variables
+      KAGGLE_USERNAME: ${KAGGLE_USERNAME}
+      KAGGLE_KEY: ${KAGGLE_KEY}
+
+    command: python entrypoint.py
+    restart: on-failure
+
+  db:
+    image: 'postgres:14.5'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /db/postgres
+    volumes:
+      - db:/db
+    expose:
+      - 5432
+
+  rabbitmq:
+    image: rabbitmq:latest
+    hostname: rabbit
+    expose:
+      - 5672
+
+volumes:
+  db:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: "${VOLUMES_ROOT}/db"
+
+  storage:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: "${VOLUMES_ROOT}/storage"
+
+  logs:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: "${VOLUMES_ROOT}/logs"

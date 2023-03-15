@@ -1,12 +1,12 @@
 from pathlib import Path
 from typing import Iterable
-from urllib.parse import urlparse, urlunparse, ParseResult
+from urllib.parse import ParseResult, urlparse, urlunparse
 
 import requests
 from lxml import html
 
-from .base import Content, ChannelAdapter, ChannelData, PostUpdate
 from ..utils import url_to_base64
+from .base import ChannelAdapter, ChannelData, Content, PostUpdate
 
 
 class SongKick(ChannelAdapter):
