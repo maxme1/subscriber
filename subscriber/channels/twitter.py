@@ -2,7 +2,7 @@ import re
 import tempfile
 import time
 from pathlib import Path
-from typing import Iterable
+from typing import AsyncIterable
 from urllib.parse import urlparse
 
 from selenium import webdriver
@@ -20,15 +20,16 @@ class Twitter(ChannelAdapter):
     queue = 'selenium'
 
     GROUP_NAME = re.compile(r'^/(\w+)$', flags=re.IGNORECASE)
+    TWEET = re.compile(r'^.*/status/\d+$')
 
     def track(self, url: str) -> ChannelData:
         path = urlparse(url).path
-        name = Twitter.GROUP_NAME.match(path)
+        name = self.GROUP_NAME.match(path)
         if not name:
             raise ValueError(f'{path} is not a valid channel name.')
         return ChannelData(update_url=url, name=name.group(1))
 
-    def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
+    async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
         options = Options()
         options.headless = True
         profile = FirefoxProfile()
@@ -53,36 +54,33 @@ class Twitter(ChannelAdapter):
             # disable an annoying message
             driver.execute_script("arguments[0].style.visibility='hidden'", driver.find_element_by_id('layers'))
 
-            results = []
             tweet: WebElement
             with tempfile.TemporaryDirectory() as folder:
                 file = str(Path(folder, 'file.png'))
 
-                for tweet in tweets:
+                for tweet in reversed(tweets):
                     # content = self._find_text(tweet)
                     for link in tweet.find_elements_by_css_selector('a[role=link]'):
                         link = link.get_property('href')
 
-                        if '/status/' in link:
-                            # take a tween screenshot
+                        if self.TWEET.match(link):
+                            # take a tweet screenshot
                             if not link.startswith('https://twitter.com'):
                                 link = 'https://twitter.com' + link
                             tweet.screenshot(file)
-                            results.append(PostUpdate(
+                            yield PostUpdate(
                                 id=link, url=link,
                                 content=Content(image=file_to_base64(file)),
-                            ))
+                            )
                             break
 
-            return reversed(results)
-
         except StaleElementReferenceException:
-            return []
+            pass
 
         finally:
             driver.close()
 
-    def scrape(self, post_url: str) -> Content:
+    async def scrape(self, post_url: str) -> Content:
         raise RuntimeError
 
     @staticmethod

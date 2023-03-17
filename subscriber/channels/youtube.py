@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import Iterable
+from typing import AsyncIterable
 
 import feedparser
 import requests
@@ -29,10 +29,10 @@ class YouTube(ChannelAdapter):
         name = feedparser.parse(update_url)['feed']['title']
         return ChannelData(update_url=update_url, name=name, image=image, url=normalized_url)
 
-    def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
+    async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
         for post in reversed(feedparser.parse(update_url)['entries']):
             yield PostUpdate(id=post['id'], url=post['link'])
 
-    def scrape(self, post_url: str) -> Content:
+    async def scrape(self, post_url: str) -> Content:
         fields = get_og_tags(requests.get(post_url).content.decode('utf-8'))
         return Content(title=fields['title'], description=fields['description'], image=url_to_base64(fields['image']))

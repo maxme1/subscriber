@@ -1,11 +1,14 @@
+import logging
 from itertools import count
-from typing import Iterable
+from typing import AsyncIterable
 
 import requests
 from lxml import html
 
 from ..utils import url_to_base64
 from .base import ChannelAdapter, ChannelData, Content, PostUpdate
+
+logger = logging.getLogger(__name__)
 
 
 class GrandChallenge(ChannelAdapter):
@@ -18,10 +21,14 @@ class GrandChallenge(ChannelAdapter):
             url='https://grand-challenge.org'
         )
 
-    def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
+    async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
         for page in count(1):
-            url = f'https://grand-challenge.org/challenges/all-challenges/?page={page}'
-            doc = html.fromstring(requests.get(url).content.decode('utf-8'))
+            url = f'https://grand-challenge.org/challenges/?page={page}'
+            response = requests.get(url)
+            if page == 1 and response.status_code == 404:
+                logger.error('The update link is broken')
+
+            doc = html.fromstring(response.content.decode('utf-8'))
             cards = doc.cssselect('.card.gc-card')
             if not cards:
                 break
@@ -34,5 +41,5 @@ class GrandChallenge(ChannelAdapter):
 
                 yield PostUpdate(id=link, url=link, content=Content(title=title, image=image))
 
-    def scrape(self, post_url: str) -> Content:
+    async def scrape(self, post_url: str) -> Content:
         raise NotImplementedError

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterable
+from typing import AsyncIterable
 from urllib.parse import ParseResult, urlparse, urlunparse
 
 import requests
@@ -38,7 +38,7 @@ class SongKick(ChannelAdapter):
         calendar = urlunparse(ParseResult(parsed.scheme, parsed.netloc, str(Path(*parts, 'calendar')), '', '', ''))
         return ChannelData(update_url=calendar, name=name, image=image, url=url)
 
-    def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
+    async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
         doc = html.fromstring(requests.get(update_url).content.decode('utf-8'))
         summary = doc.cssselect('#calendar-summary')
         if not summary:
@@ -65,5 +65,5 @@ class SongKick(ChannelAdapter):
 
             yield PostUpdate(id=suffix, url=link, content=Content(title=location, description=desc))
 
-    def scrape(self, post_url: str) -> Content:
+    async def scrape(self, post_url: str) -> Content:
         raise NotImplementedError

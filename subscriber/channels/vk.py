@@ -1,5 +1,5 @@
 import re
-from typing import Iterable
+from typing import AsyncIterable
 from urllib.parse import urlparse
 
 import requests
@@ -22,7 +22,7 @@ class VK(ChannelAdapter):
             raise ValueError(f'{path} is not a valid channel name.')
         return ChannelData(update_url=url, name=name.group(1))
 
-    def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
+    async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
         visited = set()
         doc = html.fromstring(requests.get(update_url).content.decode('utf-8'))
         for element in reversed(doc.cssselect('[data-post-id]')):
@@ -31,7 +31,7 @@ class VK(ChannelAdapter):
                 visited.add(i)
                 yield PostUpdate(id=i[1:], url=f'https://vk.com/wall{i}', content=Content())
 
-    def scrape(self, post_url: str) -> Content:
+    async def scrape(self, post_url: str) -> Content:
         return Content()
 
         doc = html.fromstring(requests.get(post_url).content.decode('utf-8'))

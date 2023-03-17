@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Optional
+from typing import AsyncIterable, Optional
 
 from pydantic import BaseModel
 
@@ -43,11 +43,11 @@ class ChannelAdapter(ABC):
         """ Get essential channel information based on the provided url """
 
     @abstractmethod
-    def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
+    async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
         """ Get the list of posts for a channel """
 
     @abstractmethod
-    def scrape(self, post_url: str) -> Content:
+    async def scrape(self, post_url: str) -> Content:
         """ Get additional information for a post. Invoked only if post_update.content is None """
 
     @classmethod

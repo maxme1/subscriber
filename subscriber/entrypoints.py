@@ -10,7 +10,7 @@ import aio_pika
 from sqlalchemy_utils import create_database, database_exists
 
 from .base import make_engine
-from .channels import ChannelAdapter, Content
+from .channels import ChannelAdapter
 from .channels.base import PostUpdate
 from .crud import get_old_posts, list_all_sources, save_chat_post, save_post
 from .destinations import Destination
@@ -25,17 +25,16 @@ async def run_source(rabbit_url):
     # todo: fill from the database?
     visited = defaultdict(set)
 
-    connection = await aio_pika.connect_robust(rabbit_url)
+    connection = await aio_pika.connect_robust(rabbit_url, heartbeat=300)
     async with connection:
         channel = await connection.channel()
 
         while True:
             for notify, source in list_all_sources():
                 adapter = ChannelAdapter.dispatch_type(source.type)
-                # TODO: async for
-                for update in adapter.update(source.update_url, source.name):
+                async for update in adapter.update(source.update_url, source.name):
                     if update.id in visited[source.pk]:
-                        logger.info('Post exists: %s for %s (%s)', update.id, source.name, source.type)
+                        logger.debug('Post exists: %s for %s (%s)', update.id, source.name, source.type)
                         continue
 
                     logger.info('New post: %s for %s (%s)', update.id, source.name, source.type)
@@ -43,10 +42,7 @@ async def run_source(rabbit_url):
 
                     content = update.content
                     if content is None:
-                        content = adapter.scrape(update.url)
-                    if content is None:
-                        content = Content()
-                    update.content = content
+                        update.content = await adapter.scrape(update.url)
 
                     await channel.default_exchange.publish(
                         aio_pika.Message(body=json.dumps([source.json(), update.json(), notify]).encode()),
@@ -84,7 +80,7 @@ async def run_router(rabbit_url):
                 async with message.process():
                     source, update, notify = json.loads(message.body)
                     source, update = Source.parse_raw(source), PostUpdate.parse_raw(update)
-                    logger.info('Got update %s for source %s (%s)', update.id, source.name, source.type)
+                    logger.debug('Got update %s for source %s (%s)', update.id, source.name, source.type)
 
                     for chat_id, chat_type, chat_pk, post_pk, post in save_post(source, update, notify):
                         await channel.default_exchange.publish(
@@ -113,7 +109,7 @@ async def run_destination(destination: Destination, rabbit_url: str):
                         chat_pk, post_pk, post = args
                         post = Post.parse_raw(post)
 
-                        logger.info('Notifying %s about %s', chat_id, post.title)
+                        logger.info('Notifying %s about %s', chat_id, post.title or post.description[:20])
                         message_id = await destination.notify(chat_id, post)
                         save_chat_post(chat_pk, post_pk, message_id)
 
@@ -131,9 +127,9 @@ async def run_destination(destination: Destination, rabbit_url: str):
 
 def init():
     # storage
-    storage_path = Path(os.environ['STORAGE_PATH'])
-    if not list(storage_path.iterdir()):
-        with open(storage_path / 'config.yml', 'w') as config:
+    storage_path = os.environ.get('STORAGE_PATH')
+    if storage_path is not None and not list(Path(storage_path).iterdir()):
+        with open(Path(storage_path) / 'config.yml', 'w') as config:
             config.write('hash: sha256\nlevels: [ 1, 31 ]')
 
     # database
@@ -148,8 +144,8 @@ def init():
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
     logs_path = os.environ.get('LOGS_PATH')
     if logs_path is not None:
-        logger = logging.getLogger('subscriber')
+        logger_ = logging.getLogger('subscriber')
         handler = TimedRotatingFileHandler(f'{logs_path}/warning.log', when='midnight')
         handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         handler.setLevel(logging.WARNING)
-        logger.addHandler(handler)
+        logger_.addHandler(handler)
