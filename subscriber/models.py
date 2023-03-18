@@ -113,7 +113,7 @@ class ChatToSource(Base):
 
 
 class ChatPostState(enum.Enum):
-    Pending, Posted, Keeping, Deleted = range(4)
+    Posted, Keeping, Deleted = range(3)
 
 
 class ChatPost(Base):

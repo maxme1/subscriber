@@ -10,11 +10,10 @@ import aio_pika
 from sqlalchemy_utils import create_database, database_exists
 
 from .base import make_engine
-from .channels import ChannelAdapter
-from .channels.base import PostUpdate
 from .crud import get_old_posts, list_all_sources, save_chat_post, save_post
 from .destinations import Destination
 from .models import Base, Post, Source
+from .sources import ChannelAdapter, PostUpdate
 
 logger = logging.getLogger(__name__)
 ROUTER_QUEUE = 'router'
@@ -111,7 +110,8 @@ async def run_destination(destination: Destination, rabbit_url: str):
 
                         logger.info('Notifying %s about %s', chat_id, post.title or post.description[:20])
                         message_id = await destination.notify(chat_id, post)
-                        save_chat_post(chat_pk, post_pk, message_id)
+                        if message_id is not None:
+                            save_chat_post(chat_pk, post_pk, message_id)
 
                     elif cmd == 'remove':
                         message_id, = args
@@ -141,11 +141,17 @@ def init():
     assert database_exists(engine.url)
 
     # logging
-    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+    logger_ = logging.getLogger('subscriber')
+    logger_.setLevel(logging.INFO)
+    _add_handler(logger_, logging.StreamHandler(), logging.INFO)
     logs_path = os.environ.get('LOGS_PATH')
     if logs_path is not None:
-        logger_ = logging.getLogger('subscriber')
-        handler = TimedRotatingFileHandler(f'{logs_path}/warning.log', when='midnight')
-        handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-        handler.setLevel(logging.WARNING)
-        logger_.addHandler(handler)
+        _add_handler(
+            logger_, TimedRotatingFileHandler(Path(logs_path) / 'warning.log', when='midnight'), logging.WARNING
+        )
+
+
+def _add_handler(logger_, handler, level):
+    handler.setLevel(level)
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger_.addHandler(handler)

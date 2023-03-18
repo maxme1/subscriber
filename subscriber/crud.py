@@ -6,10 +6,10 @@ from urllib.parse import urlparse
 from sqlalchemy.orm import Session
 
 from .base import db, get_or_create
-from .channels.base import DOMAIN_TO_CHANNEL, PostUpdate
 from .models import (
     ChatPost, ChatPostState, ChatTable, ChatToSource, File, FileTable, Identifier, Post, PostTable, Source, SourceTable
 )
+from .sources import ChannelAdapter, PostUpdate
 from .utils import store_base64
 
 logger = logging.getLogger(__name__)
@@ -19,10 +19,11 @@ def subscribe(chat_id: Identifier, chat_type: str, url: str):
     parts = urlparse(url)
 
     domain = '.'.join(parts.netloc.split('.')[-2:]).lower()
-    if domain not in DOMAIN_TO_CHANNEL:
-        return f'Unknown domain: {domain}'
 
-    adapter = DOMAIN_TO_CHANNEL[domain]()
+    try:
+        adapter = ChannelAdapter.dispatch_domain(domain)
+    except KeyError:
+        return f'Unknown domain: {domain}'
 
     try:
         data = adapter.track(url)
@@ -106,7 +107,7 @@ def save_post(source: Source, update: PostUpdate, notify: bool):
 
 def save_chat_post(chat_pk: int, post_pk: int, message_id: Identifier):
     with db() as session:
-        session.add(ChatPost(post_id=post_pk, chat_id=chat_pk, message_id=message_id, state=ChatPostState.Pending))
+        session.add(ChatPost(post_id=post_pk, chat_id=chat_pk, message_id=message_id, state=ChatPostState.Posted))
         session.flush()
 
 
@@ -114,9 +115,8 @@ def get_old_posts() -> Iterable[tuple[str, Identifier, Identifier]]:
     with db() as session:
         outdated = session.query(ChatPost).where(ChatPost.state == ChatPostState.Posted).where(
             ChatPost.post.has(ChatPost.created < datetime.utcnow() - timedelta(days=1))
-        )
-
-        for chat_post in outdated.all():
+        ).all()
+        for chat_post in outdated:
             yield chat_post.chat.type, chat_post.chat.identifier, chat_post.message_id
 
             chat_post.state = ChatPostState.Deleted

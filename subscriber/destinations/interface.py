@@ -36,7 +36,7 @@ class Destination:
     async def stop(self):
         pass
 
-    async def notify(self, chat_id: Identifier, post: Post) -> Identifier:
+    async def notify(self, chat_id: Identifier, post: Post) -> Identifier | None:
         pass
 
     async def remove(self, chat_id: Identifier, message_id: Identifier):

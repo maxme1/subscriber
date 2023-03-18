@@ -1,4 +1,4 @@
-from .base import DOMAIN_TO_CHANNEL, TYPE_TO_CHANNEL, ChannelAdapter, Content
+from .interface import ChannelAdapter, Content, PostUpdate
 from .grand_challenge import GrandChallenge
 from .kaggle import Kaggle
 from .songkick import SongKick

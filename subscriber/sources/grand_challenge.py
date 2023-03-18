@@ -6,7 +6,7 @@ import requests
 from lxml import html
 
 from ..utils import url_to_base64
-from .base import ChannelAdapter, ChannelData, Content, PostUpdate
+from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
 
 logger = logging.getLogger(__name__)
 

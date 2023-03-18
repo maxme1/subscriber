@@ -1,6 +1,6 @@
 from typing import AsyncIterable
 
-from .base import ChannelAdapter, ChannelData, Content, PostUpdate
+from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
 
 
 class Kaggle(ChannelAdapter):

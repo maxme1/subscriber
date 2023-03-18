@@ -6,7 +6,7 @@ import requests
 from lxml import html
 
 from ..utils import url_to_base64
-from .base import ChannelAdapter, ChannelData, Content, PostUpdate
+from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
 
 
 class SongKick(ChannelAdapter):
@@ -17,7 +17,6 @@ class SongKick(ChannelAdapter):
         parsed = urlparse(url)
         parts = Path(parsed.path).parts[1:]
         if len(parts) < 2 or parts[0] != 'artists':
-            print(parts)
             raise ValueError('This is not a valid artist link.')
         parts = parts[:2]
 
