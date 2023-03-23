@@ -39,7 +39,7 @@ class ChannelAdapter(ABC):
     add_name: bool = False
 
     @abstractmethod
-    def track(self, url: str) -> ChannelData:
+    async def track(self, url: str) -> ChannelData:
         """ Get essential channel information based on the provided url """
 
     @abstractmethod

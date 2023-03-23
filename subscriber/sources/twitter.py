@@ -1,10 +1,13 @@
+import asyncio
 import re
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import AsyncIterable
 from urllib.parse import urlparse
 
+from jboc import collect
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver import FirefoxProfile
@@ -22,14 +25,24 @@ class Twitter(ChannelAdapter):
     GROUP_NAME = re.compile(r'^/(\w+)$', flags=re.IGNORECASE)
     TWEET = re.compile(r'^.*/status/\d+$')
 
-    def track(self, url: str) -> ChannelData:
+    async def track(self, url: str) -> ChannelData:
         path = urlparse(url).path
         name = self.GROUP_NAME.match(path)
         if not name:
             raise ValueError(f'{path} is not a valid channel name.')
         return ChannelData(update_url=url, name=name.group(1))
 
+    # TODO: move to a separate thread
     async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
+        with ThreadPoolExecutor(1) as pool:
+            results = await asyncio.wrap_future(pool.submit(self._update, update_url))
+
+        for result in results:
+            yield result
+
+    @staticmethod
+    @collect
+    def _update(update_url: str):
         options = Options()
         options.headless = True
         profile = FirefoxProfile()
@@ -42,13 +55,13 @@ class Twitter(ChannelAdapter):
         driver.get(update_url)
 
         try:
-            tweets = self._get_tweets(driver)
+            tweets = Twitter._get_tweets(driver)
 
             # wait up to 2 seconds
             n_iters = 20
             while not tweets and n_iters > 0:
                 time.sleep(0.1)
-                tweets = self._get_tweets(driver)
+                tweets = Twitter._get_tweets(driver)
                 n_iters -= 1
 
             # disable an annoying message
@@ -63,7 +76,7 @@ class Twitter(ChannelAdapter):
                     for link in tweet.find_elements_by_css_selector('a[role=link]'):
                         link = link.get_property('href')
 
-                        if self.TWEET.match(link):
+                        if Twitter.TWEET.match(link):
                             # take a tweet screenshot
                             if not link.startswith('https://twitter.com'):
                                 link = 'https://twitter.com' + link

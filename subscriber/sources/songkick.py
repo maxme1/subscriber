@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import AsyncIterable
 from urllib.parse import ParseResult, urlparse, urlunparse
 
-import requests
+import aiohttp
 from lxml import html
 
 from ..utils import url_to_base64
@@ -13,7 +13,7 @@ class SongKick(ChannelAdapter):
     domain = 'songkick.com'
     add_name = True
 
-    def track(self, url: str) -> ChannelData:
+    async def track(self, url: str) -> ChannelData:
         parsed = urlparse(url)
         parts = Path(parsed.path).parts[1:]
         if len(parts) < 2 or parts[0] != 'artists':
@@ -21,24 +21,31 @@ class SongKick(ChannelAdapter):
         parts = parts[:2]
 
         url = urlunparse(ParseResult(parsed.scheme, parsed.netloc, str(Path(*parts)), '', '', ''))
-        doc = html.fromstring(requests.get(url).content.decode('utf-8'))
-        header, = doc.cssselect('.artist-header')
-        name, = header.cssselect('h1')
-        image, = header.cssselect('img.artist-profile-image')
-        name = name.text.strip()
 
-        image = image.attrib.get('src')
-        if image.startswith(r'//'):
-            image = f'https:{image}'
-        else:
-            image = f'https://www.songkick.com/{image}'
-        image = url_to_base64(image)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                doc = html.fromstring(await response.text())
 
-        calendar = urlunparse(ParseResult(parsed.scheme, parsed.netloc, str(Path(*parts, 'calendar')), '', '', ''))
-        return ChannelData(update_url=calendar, name=name, image=image, url=url)
+            header, = doc.cssselect('.artist-header')
+            name, = header.cssselect('h1')
+            image, = header.cssselect('img.artist-profile-image')
+            name = name.text.strip()
+
+            image = image.attrib.get('src')
+            if image.startswith(r'//'):
+                image = f'https:{image}'
+            else:
+                image = f'https://www.songkick.com/{image}'
+            image = await url_to_base64(image, session)
+
+            calendar = urlunparse(ParseResult(parsed.scheme, parsed.netloc, str(Path(*parts, 'calendar')), '', '', ''))
+            return ChannelData(update_url=calendar, name=name, image=image, url=url)
 
     async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
-        doc = html.fromstring(requests.get(update_url).content.decode('utf-8'))
+        async with aiohttp.ClientSession() as session:
+            async with session.get(update_url) as response:
+                doc = html.fromstring(await response.text())
+
         summary = doc.cssselect('#calendar-summary')
         if not summary:
             return

@@ -2,7 +2,7 @@ import re
 from typing import AsyncIterable
 from urllib.parse import urlparse
 
-import requests
+import aiohttp
 from lxml import html
 
 from ..utils import url_to_base64
@@ -15,7 +15,7 @@ class VK(ChannelAdapter):
     GROUP_NAME = re.compile(r'^/(\w+)$', flags=re.IGNORECASE)
     IMAGE_LINK = re.compile(r'background-image: url\((.*)\);')
 
-    def track(self, url: str) -> ChannelData:
+    async def track(self, url: str) -> ChannelData:
         path = urlparse(url).path
         name = VK.GROUP_NAME.match(path)
         if not name:
@@ -23,8 +23,11 @@ class VK(ChannelAdapter):
         return ChannelData(update_url=url, name=name.group(1))
 
     async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(update_url) as response:
+                doc = html.fromstring(await response.text())
+
         visited = set()
-        doc = html.fromstring(requests.get(update_url).content.decode('utf-8'))
         for element in reversed(doc.cssselect('[data-post-id]')):
             i = element.attrib.get('data-post-id', '')
             if i.startswith('-') and i not in visited:

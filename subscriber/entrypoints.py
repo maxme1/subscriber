@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from collections import defaultdict
+from contextlib import suppress
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
@@ -24,29 +25,34 @@ async def run_source(rabbit_url):
     # todo: fill from the database?
     visited = defaultdict(set)
 
-    connection = await aio_pika.connect_robust(rabbit_url, heartbeat=300)
+    connection = await connect(rabbit_url, heartbeat=300)
     async with connection:
         channel = await connection.channel()
 
         while True:
             for notify, source in list_all_sources():
+                # TODO: group sources by type
                 adapter = ChannelAdapter.dispatch_type(source.type)
-                async for update in adapter.update(source.update_url, source.name):
-                    if update.id in visited[source.pk]:
-                        logger.debug('Post exists: %s for %s (%s)', update.id, source.name, source.type)
-                        continue
+                try:
+                    async for update in adapter.update(source.update_url, source.name):
+                        if update.id in visited[source.pk]:
+                            logger.debug('Post exists: %s for %s (%s)', update.id, source.name, source.type)
+                            continue
 
-                    logger.info('New post: %s for %s (%s)', update.id, source.name, source.type)
-                    visited[source.pk].add(update.id)
+                        logger.info('New post: %s for %s (%s)', update.id, source.name, source.type)
+                        visited[source.pk].add(update.id)
 
-                    content = update.content
-                    if content is None:
-                        update.content = await adapter.scrape(update.url)
+                        content = update.content
+                        if content is None:
+                            update.content = await adapter.scrape(update.url)
 
-                    await channel.default_exchange.publish(
-                        aio_pika.Message(body=json.dumps([source.json(), update.json(), notify]).encode()),
-                        routing_key=ROUTER_QUEUE,
-                    )
+                        await channel.default_exchange.publish(
+                            aio_pika.Message(body=json.dumps([source.json(), update.json(), notify]).encode()),
+                            routing_key=ROUTER_QUEUE,
+                        )
+
+                except Exception:
+                    logger.exception('An exception while processing %s (%s)', source.name, source.type)
 
             await asyncio.sleep(600)
 
@@ -64,7 +70,7 @@ async def delete_old_posts(channel):
 
 
 async def run_router(rabbit_url):
-    connection = await aio_pika.connect_robust(rabbit_url)
+    connection = await connect(rabbit_url)
     async with connection:
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=10)
@@ -93,7 +99,7 @@ async def run_router(rabbit_url):
 async def run_destination(destination: Destination, rabbit_url: str):
     await destination.start()
 
-    connection = await aio_pika.connect_robust(rabbit_url)
+    connection = await connect(rabbit_url)
     async with connection:
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=10)
@@ -123,6 +129,15 @@ async def run_destination(destination: Destination, rabbit_url: str):
                         raise TypeError(cmd)
 
     await destination.stop()
+
+
+async def connect(rabbit_url, **kwargs):
+    """ A simple way to wait for rabbit to be up and running """
+    while True:
+        with suppress(aio_pika.exceptions.AMQPConnectionError):
+            return await aio_pika.connect_robust(rabbit_url, **kwargs)
+
+        await asyncio.sleep(1)
 
 
 def init():
