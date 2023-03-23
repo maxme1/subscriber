@@ -12,7 +12,8 @@ from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
 class YouTube(ChannelAdapter):
     domain = 'youtube.com'
 
-    async def track(self, url: str) -> ChannelData:
+    @staticmethod
+    async def track(url: str) -> ChannelData:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
                 body = await response.text()

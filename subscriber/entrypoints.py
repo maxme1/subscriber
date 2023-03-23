@@ -30,29 +30,37 @@ async def run_source(rabbit_url):
         channel = await connection.channel()
 
         while True:
+            groups = defaultdict(list)
             for notify, source in list_all_sources():
-                # TODO: group sources by type
-                adapter = ChannelAdapter.dispatch_type(source.type)
-                try:
-                    async for update in adapter.update(source.update_url, source.name):
-                        if update.id in visited[source.pk]:
-                            logger.debug('Post exists: %s for %s (%s)', update.id, source.name, source.type)
-                            continue
+                groups[source.type].append((notify, source))
 
-                        logger.info('New post: %s for %s (%s)', update.id, source.name, source.type)
-                        visited[source.pk].add(update.id)
+            for kind, sources in groups.items():
+                adapter = ChannelAdapter.dispatch_type(kind)()
 
-                        content = update.content
-                        if content is None:
-                            update.content = await adapter.scrape(update.url)
+                for notify, source in sources:
+                    try:
+                        async for update in adapter.update(source.update_url, source.name):
+                            if update.id in visited[source.pk]:
+                                logger.debug('Post exists: %s for %s (%s)', update.id, source.name, source.type)
+                                continue
 
-                        await channel.default_exchange.publish(
-                            aio_pika.Message(body=json.dumps([source.json(), update.json(), notify]).encode()),
-                            routing_key=ROUTER_QUEUE,
-                        )
+                            logger.info('New post: %s for %s (%s)', update.id, source.name, source.type)
+                            visited[source.pk].add(update.id)
 
-                except Exception:
-                    logger.exception('An exception while processing %s (%s)', source.name, source.type)
+                            content = update.content
+                            if content is None:
+                                update.content = await adapter.scrape(update.url)
+
+                            await channel.default_exchange.publish(
+                                aio_pika.Message(body=json.dumps([source.json(), update.json(), notify]).encode()),
+                                routing_key=ROUTER_QUEUE,
+                            )
+
+                    except Exception:
+                        logger.exception('An exception while processing %s (%s)', source.name, source.type)
+
+                # release the allocated resources
+                del adapter
 
             await asyncio.sleep(600)
 

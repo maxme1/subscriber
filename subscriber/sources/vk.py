@@ -15,7 +15,8 @@ class VK(ChannelAdapter):
     GROUP_NAME = re.compile(r'^/(\w+)$', flags=re.IGNORECASE)
     IMAGE_LINK = re.compile(r'background-image: url\((.*)\);')
 
-    async def track(self, url: str) -> ChannelData:
+    @staticmethod
+    async def track(url: str) -> ChannelData:
         path = urlparse(url).path
         name = VK.GROUP_NAME.match(path)
         if not name:

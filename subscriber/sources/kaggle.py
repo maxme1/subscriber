@@ -6,7 +6,8 @@ from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
 class Kaggle(ChannelAdapter):
     domain = 'kaggle.com'
 
-    async def track(self, url: str) -> ChannelData:
+    @staticmethod
+    async def track(url: str) -> ChannelData:
         return ChannelData(
             update_url='https://www.kaggle.com/competitions',
             name='Kaggle Competitions',

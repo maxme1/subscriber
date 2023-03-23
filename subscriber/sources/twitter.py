@@ -25,24 +25,8 @@ class Twitter(ChannelAdapter):
     GROUP_NAME = re.compile(r'^/(\w+)$', flags=re.IGNORECASE)
     TWEET = re.compile(r'^.*/status/\d+$')
 
-    async def track(self, url: str) -> ChannelData:
-        path = urlparse(url).path
-        name = self.GROUP_NAME.match(path)
-        if not name:
-            raise ValueError(f'{path} is not a valid channel name.')
-        return ChannelData(update_url=url, name=name.group(1))
-
-    # TODO: move to a separate thread
-    async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
-        with ThreadPoolExecutor(1) as pool:
-            results = await asyncio.wrap_future(pool.submit(self._update, update_url))
-
-        for result in results:
-            yield result
-
-    @staticmethod
-    @collect
-    def _update(update_url: str):
+    def __init__(self):
+        self._pool = ThreadPoolExecutor(1)
         options = Options()
         options.headless = True
         profile = FirefoxProfile()
@@ -50,22 +34,44 @@ class Twitter(ChannelAdapter):
         # profile.set_preference('permissions.default.image', 2)
         # don't use flash
         profile.set_preference('dom.ipc.plugins.enabled.libflashplayer.so', 'false')
-        driver = webdriver.Firefox(firefox_options=options, firefox_profile=profile)
-        driver.set_window_size(1000, 1000)
-        driver.get(update_url)
+        self._driver = webdriver.Firefox(firefox_options=options, firefox_profile=profile)
+        self._driver.set_window_size(1000, 1000)
+
+    def __del__(self):
+        self._driver.close()
+        self._pool.shutdown(wait=True)
+
+    @staticmethod
+    async def track(url: str) -> ChannelData:
+        path = urlparse(url).path
+        name = Twitter.GROUP_NAME.match(path)
+        if not name:
+            raise ValueError(f'{path} is not a valid channel name.')
+        return ChannelData(update_url=url, name=name.group(1))
+
+    async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
+        results = await asyncio.wrap_future(self._pool.submit(self._update, update_url))
+        for result in results:
+            yield result
+
+    @collect
+    def _update(self, update_url: str):
+        self._driver.get(update_url)
 
         try:
-            tweets = Twitter._get_tweets(driver)
+            tweets = self._get_tweets()
 
             # wait up to 2 seconds
             n_iters = 20
             while not tweets and n_iters > 0:
                 time.sleep(0.1)
-                tweets = Twitter._get_tweets(driver)
+                tweets = self._get_tweets()
                 n_iters -= 1
 
             # disable an annoying message
-            driver.execute_script("arguments[0].style.visibility='hidden'", driver.find_element_by_id('layers'))
+            self._driver.execute_script(
+                "arguments[0].style.visibility='hidden'", self._driver.find_element_by_id('layers')
+            )
 
             tweet: WebElement
             with tempfile.TemporaryDirectory() as folder:
@@ -76,7 +82,7 @@ class Twitter(ChannelAdapter):
                     for link in tweet.find_elements_by_css_selector('a[role=link]'):
                         link = link.get_property('href')
 
-                        if Twitter.TWEET.match(link):
+                        if self.TWEET.match(link):
                             # take a tweet screenshot
                             if not link.startswith('https://twitter.com'):
                                 link = 'https://twitter.com' + link
@@ -90,18 +96,14 @@ class Twitter(ChannelAdapter):
         except StaleElementReferenceException:
             pass
 
-        finally:
-            driver.close()
-
     async def scrape(self, post_url: str) -> Content:
         raise RuntimeError
 
-    @staticmethod
-    def _get_tweets(driver):
-        tweets = driver.find_elements_by_css_selector('[data-testid=tweet]')
+    def _get_tweets(self):
+        tweets = self._driver.find_elements_by_css_selector('[data-testid=tweet]')
         if tweets:
-            driver.execute_script('window.stop();')
-            tweets = driver.find_elements_by_css_selector('[data-testid=tweet]')
+            self._driver.execute_script('window.stop();')
+            tweets = self._driver.find_elements_by_css_selector('[data-testid=tweet]')
             assert tweets
         return tweets
 

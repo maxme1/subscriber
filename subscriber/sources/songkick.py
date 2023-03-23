@@ -13,7 +13,8 @@ class SongKick(ChannelAdapter):
     domain = 'songkick.com'
     add_name = True
 
-    async def track(self, url: str) -> ChannelData:
+    @staticmethod
+    async def track(url: str) -> ChannelData:
         parsed = urlparse(url)
         parts = Path(parsed.path).parts[1:]
         if len(parts) < 2 or parts[0] != 'artists':

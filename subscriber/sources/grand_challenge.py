@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 class GrandChallenge(ChannelAdapter):
     domain = 'grand-challenge.org'
 
-    async def track(self, url: str) -> ChannelData:
+    @staticmethod
+    async def track(url: str) -> ChannelData:
         return ChannelData(
             update_url='https://grand-challenge.org/challenges/all-challenges',
             name='GrandChallenge Competitions',
