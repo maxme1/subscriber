@@ -72,7 +72,6 @@ def save_post(source: Source, update: PostUpdate, notify: bool):
         session.add(post_entry)
         session.flush()
         # prepare chat posts to be sent to subscribers
-        #   but only if the channel was already updated in the past
         if notify:
             source_entry = session.query(SourceTable).where(SourceTable.id == source_id).first()
             image = post_entry.image or source_entry.image
@@ -85,15 +84,22 @@ def save_post(source: Source, update: PostUpdate, notify: bool):
 
 
 def save_chat_post(chat_pk: int, post_pk: int, message_id: Identifier):
+    # FIXME
+    ten_years = 315_569_260
     with db() as session:
-        session.add(ChatPost(post_id=post_pk, chat_id=chat_pk, message_id=message_id, state=ChatPostState.Posted))
+        chat = session.query(ChatTable).where(ChatTable.id == chat_pk).first()
+        ttl = chat.ttl
+        deadline = datetime.utcnow() + timedelta(seconds=ttl if ttl is not None else ten_years)
+        session.add(ChatPost(
+            post_id=post_pk, chat_id=chat_pk, message_id=message_id, state=ChatPostState.Posted, deadline=deadline
+        ))
         session.flush()
 
 
 def get_old_posts() -> Iterable[tuple[str, Identifier, Identifier]]:
     with db() as session:
         outdated = session.query(ChatPost).where(ChatPost.state == ChatPostState.Posted).where(
-            ChatPost.post.has(ChatPost.created < datetime.utcnow() - timedelta(days=1))
+            ChatPost.deadline < datetime.utcnow()
         ).all()
         for chat_post in outdated:
             yield chat_post.chat.type, chat_post.chat.identifier, chat_post.message_id

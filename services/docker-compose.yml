@@ -56,6 +56,13 @@ services:
 
   crawler:
     depends_on: [ 'db', 'rabbitmq' ]
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '2G'
+
     build:
       dockerfile: services/crawler/Dockerfile
       context: ..

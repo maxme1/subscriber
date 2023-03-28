@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import AsyncIterable
 from urllib.parse import ParseResult, urlparse, urlunparse
@@ -7,6 +8,8 @@ from lxml import html
 
 from ..utils import url_to_base64
 from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
+
+logger = logging.getLogger(__name__)
 
 
 class SongKick(ChannelAdapter):
@@ -49,6 +52,9 @@ class SongKick(ChannelAdapter):
 
         summary = doc.cssselect('#calendar-summary')
         if not summary:
+            return
+        if len(summary) > 1:
+            logger.error('"#calendar-summary" has too many elements: %d', len(summary))
             return
 
         summary, = summary
