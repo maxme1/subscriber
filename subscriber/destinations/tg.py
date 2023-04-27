@@ -46,6 +46,7 @@ class Telegram(Destination):
         await self.app.stop()
         await self.app.shutdown()
 
+    # TODO: add throttling
     async def notify(self, chat_id: Identifier, post: Post) -> Identifier:
         text = f'{post.title}\n{post.description}\n{post.url}'.strip()
         image = post.image

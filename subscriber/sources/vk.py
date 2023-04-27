@@ -2,7 +2,7 @@ import re
 from typing import AsyncIterable
 from urllib.parse import urlparse
 
-import aiohttp
+from aiohttp import ClientSession
 from lxml import html
 
 from ..utils import url_to_base64
@@ -23,10 +23,9 @@ class VK(ChannelAdapter):
             raise ValueError(f'{path} is not a valid channel name.')
         return ChannelData(update_url=url, name=name.group(1))
 
-    async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(update_url) as response:
-                doc = html.fromstring(await response.text())
+    async def update(self, update_url: str, name: str, session: ClientSession) -> AsyncIterable[PostUpdate]:
+        async with session.get(update_url) as response:
+            doc = html.fromstring(await response.text())
 
         visited = set()
         for element in reversed(doc.cssselect('[data-post-id]')):
@@ -35,7 +34,7 @@ class VK(ChannelAdapter):
                 visited.add(i)
                 yield PostUpdate(id=i[1:], url=f'https://vk.com/wall{i}', content=Content())
 
-    async def scrape(self, post_url: str) -> Content:
+    async def scrape(self, post_url: str, session: ClientSession) -> Content:
         return Content()
 
         doc = html.fromstring(requests.get(post_url).content.decode('utf-8'))

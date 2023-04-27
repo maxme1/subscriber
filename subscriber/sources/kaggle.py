@@ -1,5 +1,7 @@
 from typing import AsyncIterable
 
+from aiohttp import ClientSession
+
 from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
 
 
@@ -14,7 +16,7 @@ class Kaggle(ChannelAdapter):
             url='https://www.kaggle.com/competitions'
         )
 
-    async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
+    async def update(self, update_url: str, name: str, session: ClientSession) -> AsyncIterable[PostUpdate]:
         # FIXME
         import kaggle.api
 
@@ -24,5 +26,5 @@ class Kaggle(ChannelAdapter):
                 content=Content(title=competition.title, description=competition.description)
             )
 
-    async def scrape(self, post_url: str) -> Content:
+    async def scrape(self, post_url: str, session: ClientSession) -> Content:
         raise NotImplementedError

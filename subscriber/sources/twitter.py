@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import AsyncIterable
 from urllib.parse import urlparse
 
+from aiohttp import ClientSession
 from jboc import collect
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
@@ -49,7 +50,7 @@ class Twitter(ChannelAdapter):
             raise ValueError(f'{path} is not a valid channel name.')
         return ChannelData(update_url=url, name=name.group(1))
 
-    async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
+    async def update(self, update_url: str, name: str, session: ClientSession) -> AsyncIterable[PostUpdate]:
         results = await asyncio.wrap_future(self._pool.submit(self._update, update_url))
         for result in results:
             yield result
@@ -96,7 +97,7 @@ class Twitter(ChannelAdapter):
         except StaleElementReferenceException:
             pass
 
-    async def scrape(self, post_url: str) -> Content:
+    async def scrape(self, post_url: str, session: ClientSession) -> Content:
         raise RuntimeError
 
     def _get_tweets(self):

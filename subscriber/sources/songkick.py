@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import AsyncIterable
 from urllib.parse import ParseResult, urlparse, urlunparse
 
-import aiohttp
+from aiohttp import ClientSession
 from lxml import html
 
 from ..utils import url_to_base64
@@ -26,7 +26,7 @@ class SongKick(ChannelAdapter):
 
         url = urlunparse(ParseResult(parsed.scheme, parsed.netloc, str(Path(*parts)), '', '', ''))
 
-        async with aiohttp.ClientSession() as session:
+        async with ClientSession() as session:
             async with session.get(url) as response:
                 doc = html.fromstring(await response.text())
 
@@ -45,10 +45,9 @@ class SongKick(ChannelAdapter):
             calendar = urlunparse(ParseResult(parsed.scheme, parsed.netloc, str(Path(*parts, 'calendar')), '', '', ''))
             return ChannelData(update_url=calendar, name=name, image=image, url=url)
 
-    async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(update_url) as response:
-                doc = html.fromstring(await response.text())
+    async def update(self, update_url: str, name: str, session: ClientSession) -> AsyncIterable[PostUpdate]:
+        async with session.get(update_url) as response:
+            doc = html.fromstring(await response.text())
 
         summary = doc.cssselect('#calendar-summary')
         if not summary:
@@ -78,5 +77,5 @@ class SongKick(ChannelAdapter):
 
             yield PostUpdate(id=suffix, url=link, content=Content(title=location, description=desc))
 
-    async def scrape(self, post_url: str) -> Content:
+    async def scrape(self, post_url: str, session: ClientSession) -> Content:
         raise NotImplementedError

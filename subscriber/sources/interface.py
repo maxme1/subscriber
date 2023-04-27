@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import AsyncIterable, Optional, Type
 
+from aiohttp import ClientSession
 from pydantic import BaseModel
 
 TYPE_TO_CHANNEL = {}
@@ -44,14 +45,14 @@ class ChannelAdapter(ABC):
         """ Get essential channel information based on the provided url """
 
     @abstractmethod
-    async def update(self, update_url: str, name: str) -> AsyncIterable[PostUpdate]:
+    async def update(self, update_url: str, name: str, session: ClientSession) -> AsyncIterable[PostUpdate]:
         """ Get the list of posts for a channel """
         raise NotImplementedError
         # this line is for type checkers:
         yield  # noqa
 
     @abstractmethod
-    async def scrape(self, post_url: str) -> Content:
+    async def scrape(self, post_url: str, session: ClientSession) -> Content:
         """ Get additional information for a post. Invoked only if post_update.content is None """
 
     @classmethod

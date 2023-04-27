@@ -8,6 +8,7 @@ from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 import aio_pika
+from aiohttp import ClientSession
 from sqlalchemy_utils import create_database, database_exists
 
 from .base import make_engine
@@ -26,7 +27,7 @@ async def run_source(rabbit_url):
     visited = defaultdict(set)
 
     connection = await connect(rabbit_url, heartbeat=300)
-    async with connection:
+    async with connection, ClientSession() as session:
         channel = await connection.channel()
 
         while True:
@@ -39,7 +40,7 @@ async def run_source(rabbit_url):
 
                 for notify, source in sources:
                     try:
-                        async for update in adapter.update(source.update_url, source.name):
+                        async for update in adapter.update(source.update_url, source.name, session):
                             if update.id in visited[source.pk]:
                                 logger.debug('Post exists: %s for %s (%s)', update.id, source.name, source.type)
                                 continue
@@ -49,7 +50,7 @@ async def run_source(rabbit_url):
 
                             content = update.content
                             if content is None:
-                                update.content = await adapter.scrape(update.url)
+                                update.content = await adapter.scrape(update.url, session)
 
                             await channel.default_exchange.publish(
                                 aio_pika.Message(body=json.dumps([source.json(), update.json(), notify]).encode()),
