@@ -29,16 +29,21 @@ class Twitter(ChannelAdapter):
         return ChannelData(update_url=url, name=name)
 
     async def update(self, update_url: str, name: str, session: ClientSession) -> AsyncIterable[PostUpdate]:
-        update_url = f'https://nitter.cz/{name}/rss'
+        base = 'https://nitter.cz/'
+        update_url = f'{base}{name}/rss'
 
         async with session.get(update_url) as response:
             body = await response.read()
 
         for post in feedparser.parse(BytesIO(body))['entries']:
             text = post['title_detail']
-            yield PostUpdate(id=post['id'], url=post['link'], content=Content(
-                description=text['value']
-            ))
+            identifier = link = post['link']
+            assert identifier.startswith(base), identifier
+            identifier = identifier.removeprefix(base)
+            if identifier.endswith('#m'):
+                identifier = identifier.removesuffix('#m')
+
+            yield PostUpdate(id=identifier, url=link, content=Content(description=text['value']))
 
     async def scrape(self, post_url: str, session: ClientSession) -> Content:
         raise NotImplementedError
