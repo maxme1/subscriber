@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Optional
+from typing import AsyncIterable, Optional, Type
 
+from aiohttp import ClientSession
 from pydantic import BaseModel
 
 TYPE_TO_CHANNEL = {}
@@ -38,16 +39,20 @@ class ChannelAdapter(ABC):
     queue: str = 'main'
     add_name: bool = False
 
+    @staticmethod
     @abstractmethod
-    def track(self, url: str) -> ChannelData:
+    async def track(url: str) -> ChannelData:
         """ Get essential channel information based on the provided url """
 
     @abstractmethod
-    def update(self, update_url: str, name: str) -> Iterable[PostUpdate]:
+    async def update(self, update_url: str, name: str, session: ClientSession) -> AsyncIterable[PostUpdate]:
         """ Get the list of posts for a channel """
+        raise NotImplementedError
+        # this line is for type checkers:
+        yield  # noqa
 
     @abstractmethod
-    def scrape(self, post_url: str) -> Content:
+    async def scrape(self, post_url: str, session: ClientSession) -> Content:
         """ Get additional information for a post. Invoked only if post_update.content is None """
 
     @classmethod
@@ -55,12 +60,12 @@ class ChannelAdapter(ABC):
         return cls.__name__
 
     @staticmethod
-    def dispatch_type(type) -> ChannelAdapter:
-        return TYPE_TO_CHANNEL[type]()
+    def dispatch_type(type) -> Type[ChannelAdapter]:
+        return TYPE_TO_CHANNEL[type]
 
     @staticmethod
-    def dispatch_domain(domain) -> ChannelAdapter:
-        return DOMAIN_TO_CHANNEL[domain]()
+    def dispatch_domain(domain) -> Type[ChannelAdapter]:
+        return DOMAIN_TO_CHANNEL[domain]
 
     def __init_subclass__(cls, **kwargs):
         assert cls.__name__ not in TYPE_TO_CHANNEL

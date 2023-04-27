@@ -1,11 +1,10 @@
 import asyncio
+import logging
 import os
-import time
 
 from subscriber.destinations import Telegram
 from subscriber.entrypoints import init, run_destination
 
 init()
-# FIXME: waiting for rabbit
-time.sleep(10)
+logging.getLogger('telegram').setLevel(logging.CRITICAL)
 asyncio.run(run_destination(Telegram(os.environ['TELEGRAM_TOKEN']), os.environ['RABBIT_URL']))

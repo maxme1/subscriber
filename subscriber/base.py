@@ -34,7 +34,7 @@ def db():
         session.close()
 
 
-def get_or_create(session: Session, model, defaults: dict = None, **kwargs):
+def get_or_create(session: Session, model, defaults: dict | None = None, **kwargs):
     try:
         return session.query(model).filter_by(**kwargs).one(), False
     except NoResultFound:

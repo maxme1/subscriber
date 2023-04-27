@@ -3,18 +3,19 @@ import json
 import logging
 import os
 from collections import defaultdict
+from contextlib import suppress
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 import aio_pika
+from aiohttp import ClientSession
 from sqlalchemy_utils import create_database, database_exists
 
 from .base import make_engine
-from .channels import ChannelAdapter, Content
-from .channels.base import PostUpdate
 from .crud import get_old_posts, list_all_sources, save_chat_post, save_post
 from .destinations import Destination
 from .models import Base, Post, Source
+from .sources import ChannelAdapter, PostUpdate
 
 logger = logging.getLogger(__name__)
 ROUTER_QUEUE = 'router'
@@ -25,33 +26,42 @@ async def run_source(rabbit_url):
     # todo: fill from the database?
     visited = defaultdict(set)
 
-    connection = await aio_pika.connect_robust(rabbit_url)
-    async with connection:
+    connection = await connect(rabbit_url, heartbeat=300)
+    async with connection, ClientSession() as session:
         channel = await connection.channel()
 
         while True:
+            groups = defaultdict(list)
             for notify, source in list_all_sources():
-                adapter = ChannelAdapter.dispatch_type(source.type)
-                # TODO: async for
-                for update in adapter.update(source.update_url, source.name):
-                    if update.id in visited[source.pk]:
-                        logger.info('Post exists: %s for %s (%s)', update.id, source.name, source.type)
-                        continue
+                groups[source.type].append((notify, source))
 
-                    logger.info('New post: %s for %s (%s)', update.id, source.name, source.type)
-                    visited[source.pk].add(update.id)
+            for kind, sources in groups.items():
+                adapter = ChannelAdapter.dispatch_type(kind)()
 
-                    content = update.content
-                    if content is None:
-                        content = adapter.scrape(update.url)
-                    if content is None:
-                        content = Content()
-                    update.content = content
+                for notify, source in sources:
+                    try:
+                        async for update in adapter.update(source.update_url, source.name, session):
+                            if update.id in visited[source.pk]:
+                                logger.debug('Post exists: %s for %s (%s)', update.id, source.name, source.type)
+                                continue
 
-                    await channel.default_exchange.publish(
-                        aio_pika.Message(body=json.dumps([source.json(), update.json(), notify]).encode()),
-                        routing_key=ROUTER_QUEUE,
-                    )
+                            logger.info('New post: %s for %s (%s)', update.id, source.name, source.type)
+                            visited[source.pk].add(update.id)
+
+                            content = update.content
+                            if content is None:
+                                update.content = await adapter.scrape(update.url, session)
+
+                            await channel.default_exchange.publish(
+                                aio_pika.Message(body=json.dumps([source.json(), update.json(), notify]).encode()),
+                                routing_key=ROUTER_QUEUE,
+                            )
+
+                    except Exception:
+                        logger.exception('An exception while processing %s (%s)', source.name, source.type)
+
+                # release the allocated resources
+                del adapter
 
             await asyncio.sleep(600)
 
@@ -69,7 +79,7 @@ async def delete_old_posts(channel):
 
 
 async def run_router(rabbit_url):
-    connection = await aio_pika.connect_robust(rabbit_url)
+    connection = await connect(rabbit_url)
     async with connection:
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=10)
@@ -84,7 +94,7 @@ async def run_router(rabbit_url):
                 async with message.process():
                     source, update, notify = json.loads(message.body)
                     source, update = Source.parse_raw(source), PostUpdate.parse_raw(update)
-                    logger.info('Got update %s for source %s (%s)', update.id, source.name, source.type)
+                    logger.debug('Got update %s for source %s (%s)', update.id, source.name, source.type)
 
                     for chat_id, chat_type, chat_pk, post_pk, post in save_post(source, update, notify):
                         await channel.default_exchange.publish(
@@ -98,7 +108,7 @@ async def run_router(rabbit_url):
 async def run_destination(destination: Destination, rabbit_url: str):
     await destination.start()
 
-    connection = await aio_pika.connect_robust(rabbit_url)
+    connection = await connect(rabbit_url)
     async with connection:
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=10)
@@ -113,9 +123,10 @@ async def run_destination(destination: Destination, rabbit_url: str):
                         chat_pk, post_pk, post = args
                         post = Post.parse_raw(post)
 
-                        logger.info('Notifying %s about %s', chat_id, post.title)
+                        logger.info('Notifying %s about %s', chat_id, post.title or post.description[:20])
                         message_id = await destination.notify(chat_id, post)
-                        save_chat_post(chat_pk, post_pk, message_id)
+                        if message_id is not None:
+                            save_chat_post(chat_pk, post_pk, message_id)
 
                     elif cmd == 'remove':
                         message_id, = args
@@ -129,11 +140,20 @@ async def run_destination(destination: Destination, rabbit_url: str):
     await destination.stop()
 
 
+async def connect(rabbit_url, **kwargs):
+    """ A simple way to wait for rabbit to be up and running """
+    while True:
+        with suppress(aio_pika.exceptions.AMQPConnectionError):
+            return await aio_pika.connect_robust(rabbit_url, **kwargs)
+
+        await asyncio.sleep(1)
+
+
 def init():
     # storage
-    storage_path = Path(os.environ['STORAGE_PATH'])
-    if not list(storage_path.iterdir()):
-        with open(storage_path / 'config.yml', 'w') as config:
+    storage_path = os.environ.get('STORAGE_PATH')
+    if storage_path is not None and not list(Path(storage_path).iterdir()):
+        with open(Path(storage_path) / 'config.yml', 'w') as config:
             config.write('hash: sha256\nlevels: [ 1, 31 ]')
 
     # database
@@ -145,11 +165,17 @@ def init():
     assert database_exists(engine.url)
 
     # logging
-    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+    logger_ = logging.getLogger('subscriber')
+    logger_.setLevel(logging.INFO)
+    _add_handler(logger_, logging.StreamHandler(), logging.INFO)
     logs_path = os.environ.get('LOGS_PATH')
     if logs_path is not None:
-        logger = logging.getLogger('subscriber')
-        handler = TimedRotatingFileHandler(f'{logs_path}/warning.log', when='midnight')
-        handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-        handler.setLevel(logging.WARNING)
-        logger.addHandler(handler)
+        _add_handler(
+            logger_, TimedRotatingFileHandler(Path(logs_path) / 'warning.log', when='midnight'), logging.WARNING
+        )
+
+
+def _add_handler(logger_, handler, level):
+    handler.setLevel(level)
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger_.addHandler(handler)

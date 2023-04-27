@@ -1,47 +1,27 @@
 import logging
 from datetime import datetime, timedelta
 from typing import Iterable, Sequence
-from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
 
 from .base import db, get_or_create
-from .channels.base import DOMAIN_TO_CHANNEL, PostUpdate
 from .models import (
     ChatPost, ChatPostState, ChatTable, ChatToSource, File, FileTable, Identifier, Post, PostTable, Source, SourceTable
 )
+from .sources import ChannelData, PostUpdate
 from .utils import store_base64
 
 logger = logging.getLogger(__name__)
 
 
-def subscribe(chat_id: Identifier, chat_type: str, url: str):
-    parts = urlparse(url)
-
-    domain = '.'.join(parts.netloc.split('.')[-2:]).lower()
-    if domain not in DOMAIN_TO_CHANNEL:
-        return f'Unknown domain: {domain}'
-
-    adapter = DOMAIN_TO_CHANNEL[domain]()
-
-    try:
-        data = adapter.track(url)
-        if data.url is not None:
-            url = data.url
-
-        with db() as session:
-            chat, _ = get_or_create(session, ChatTable, identifier=chat_id, type=chat_type)
-            source, _ = get_or_create(
-                session, SourceTable, defaults={'url': url, 'image': wrap_base64_to_hash(session, data.image)},
-                update_url=data.update_url, name=data.name, type=adapter.name(),
-            )
-            get_or_create(session, ChatToSource, chat_id=chat.id, source_id=source.id)
-
-        return 'Done'
-
-    except Exception:
-        logger.exception('Exception while subscribing')
-        return 'An unknown error occurred'
+def subscribe(chat_id: Identifier, chat_type: str, source_type: str, url: str, data: ChannelData):
+    with db() as session:
+        chat, _ = get_or_create(session, ChatTable, identifier=chat_id, type=chat_type)
+        source, _ = get_or_create(
+            session, SourceTable, defaults={'url': url, 'image': wrap_base64_to_hash(session, data.image)},
+            update_url=data.update_url, name=data.name, type=source_type,
+        )
+        get_or_create(session, ChatToSource, chat_id=chat.id, source_id=source.id)
 
 
 def unsubscribe(chat_id: str, source_pk: int):
@@ -92,7 +72,6 @@ def save_post(source: Source, update: PostUpdate, notify: bool):
         session.add(post_entry)
         session.flush()
         # prepare chat posts to be sent to subscribers
-        #   but only if the channel was already updated in the past
         if notify:
             source_entry = session.query(SourceTable).where(SourceTable.id == source_id).first()
             image = post_entry.image or source_entry.image
@@ -105,18 +84,24 @@ def save_post(source: Source, update: PostUpdate, notify: bool):
 
 
 def save_chat_post(chat_pk: int, post_pk: int, message_id: Identifier):
+    # FIXME
+    ten_years = 315_569_260
     with db() as session:
-        session.add(ChatPost(post_id=post_pk, chat_id=chat_pk, message_id=message_id, state=ChatPostState.Pending))
+        chat = session.query(ChatTable).where(ChatTable.id == chat_pk).first()
+        ttl = chat.ttl
+        deadline = datetime.utcnow() + timedelta(seconds=ttl if ttl is not None else ten_years)
+        session.add(ChatPost(
+            post_id=post_pk, chat_id=chat_pk, message_id=message_id, state=ChatPostState.Posted, deadline=deadline
+        ))
         session.flush()
 
 
 def get_old_posts() -> Iterable[tuple[str, Identifier, Identifier]]:
     with db() as session:
         outdated = session.query(ChatPost).where(ChatPost.state == ChatPostState.Posted).where(
-            ChatPost.post.has(ChatPost.created < datetime.utcnow() - timedelta(days=1))
-        )
-
-        for chat_post in outdated.all():
+            ChatPost.deadline < datetime.utcnow()
+        ).all()
+        for chat_post in outdated:
             yield chat_post.chat.type, chat_post.chat.identifier, chat_post.message_id
 
             chat_post.state = ChatPostState.Deleted

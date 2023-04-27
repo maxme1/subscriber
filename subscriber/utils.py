@@ -6,8 +6,8 @@ from functools import cache
 from pathlib import Path
 from typing import Union
 
+import aiohttp
 import lxml.html
-import requests
 from tarn import Disk, Storage
 
 URL_PATTERN = re.compile(
@@ -61,8 +61,9 @@ def storage_resolve(key):
     return build_storage().resolve(key)
 
 
-def url_to_base64(url: str):
+async def url_to_base64(url: str, session: aiohttp.ClientSession):
     if url is None:
         return
 
-    return base64.b64encode(requests.get(url).content)
+    async with session.get(url) as response:
+        return base64.b64encode(await response.read())

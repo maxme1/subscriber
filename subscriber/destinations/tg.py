@@ -20,9 +20,9 @@ class Telegram(Destination):
 
         app.add_handler(CommandHandler('start', start))
         app.add_handler(MessageHandler(filters.Regex(URL_PATTERN), self._link))
-        # list channels
+        # list sources
         app.add_handler(CommandHandler('list', self._list))
-        # delete channels
+        # delete sources
         app.add_handler(CommandHandler('delete', self._delete))
         app.add_handler(CallbackQueryHandler(self._delete_callback, pattern='DELETE'))
         # message commands
@@ -46,6 +46,7 @@ class Telegram(Destination):
         await self.app.stop()
         await self.app.shutdown()
 
+    # TODO: add throttling
     async def notify(self, chat_id: Identifier, post: Post) -> Identifier:
         text = f'{post.title}\n{post.description}\n{post.url}'.strip()
         image = post.image
@@ -88,9 +89,9 @@ class Telegram(Destination):
             return
         with suppress(TelegramError):
             await self.bot.edit_message_media(
-                chat_id, message_id,
                 # TODO: upload once
-                media=InputMediaPhoto('https://raster.shields.io/badge/-deleted-red')
+                InputMediaPhoto('https://raster.shields.io/badge/-deleted-red'),
+                chat_id, message_id,
             )
             return
         with suppress(TelegramError):
@@ -144,7 +145,6 @@ class Telegram(Destination):
 
 
 async def start(update: Update, context: CallbackContext):
-    print(update.message.chat.id)
     await context.bot.send_message(
         update.message.chat.id,
         # language=Markdown

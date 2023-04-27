@@ -63,11 +63,10 @@ class ChatTable(Base):
 
     identifier = Column(Unicode, nullable=False, unique=True)
     type = Column(Unicode, nullable=False)
+    ttl = Column(Integer, nullable=True)
 
     sources = relationship('SourceTable', secondary='ChatToSource', back_populates='chats')
     chat_posts = relationship('ChatPost', back_populates='chat')
-
-    # posts = relationship('Post', secondary='ChatPost', back_populates='chats')
 
     def __str__(self):
         return self.identifier
@@ -113,7 +112,7 @@ class ChatToSource(Base):
 
 
 class ChatPostState(enum.Enum):
-    Pending, Posted, Keeping, Deleted = range(4)
+    Posted, Keeping, Deleted = range(3)
 
 
 class ChatPost(Base):
@@ -123,6 +122,7 @@ class ChatPost(Base):
 
     state = Column(Enum(ChatPostState), nullable=False)
     created = Column(DateTime, nullable=False, server_default=func.now())
+    deadline = Column(DateTime, nullable=False)
 
     message_id = Column(Unicode, nullable=False)
     chat_id = Column(ForeignKey(ChatTable.id, ondelete='CASCADE'), nullable=False)
