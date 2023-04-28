@@ -1,3 +1,20 @@
+[project]
+name = 'subscriber'
+dynamic = ['version', 'dependencies']
+description = 'Subscribe to anything'
+readme = 'README.md'
+requires-python = '>=3.10'
+[build-system]
+requires = ['setuptools>=43.0.0', 'wheel']
+build-backend = 'setuptools.build_meta'
+
+[tool.setuptools.packages.find]
+include = ['subscriber']
+
+[tool.setuptools.dynamic]
+version = { attr = 'subscriber.__version__.__version__' }
+dependencies = { file = 'requirements.txt' }
+
 [tool.isort]
 line_length = 120
 lines_after_imports = 2
