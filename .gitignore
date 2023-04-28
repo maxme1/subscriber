@@ -1,6 +1,7 @@
 .idea/
 __pycache__/
 db.sqlite3
+.pytest_cache/
 
 Pipfile
 Pipfile.lock
