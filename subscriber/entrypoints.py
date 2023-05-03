@@ -57,8 +57,11 @@ async def run_source(rabbit_url):
                                 routing_key=ROUTER_QUEUE,
                             )
 
-                    except Exception:
-                        logger.exception('An exception while processing %s (%s)', source.name, source.type)
+                    except Exception as e:
+                        logger.error(
+                            'An exception while processing %s (%s): %s: %s',
+                            source.name, source.type, type(e).__name__, e,
+                        )
 
                 # release the allocated resources
                 del adapter

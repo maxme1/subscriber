@@ -12,11 +12,12 @@ from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
 
 class YouTube(ChannelAdapter):
     domain = 'youtube.com'
+    COOKIES = {'CONSENT': 'YES+999'}
 
-    @staticmethod
-    async def track(url: str) -> ChannelData:
+    @classmethod
+    async def track(cls, url: str) -> ChannelData:
         async with ClientSession() as session:
-            async with session.get(url) as response:
+            async with session.get(url, cookies=cls.COOKIES) as response:
                 body = await response.text()
 
             doc = html.fromstring(body)
@@ -37,14 +38,14 @@ class YouTube(ChannelAdapter):
             return ChannelData(update_url=update_url, name=name, image=image, url=normalized_url)
 
     async def update(self, update_url: str, name: str, session: ClientSession) -> AsyncIterable[PostUpdate]:
-        async with session.get(update_url) as response:
+        async with session.get(update_url, cookies=self.COOKIES) as response:
             body = await response.read()
 
         for post in reversed(feedparser.parse(BytesIO(body))['entries']):
             yield PostUpdate(id=post['id'], url=post['link'])
 
     async def scrape(self, post_url: str, session: ClientSession) -> Content:
-        async with session.get(post_url) as response:
+        async with session.get(post_url, cookies=self.COOKIES) as response:
             fields = get_og_tags(await response.text())
 
         return Content(
