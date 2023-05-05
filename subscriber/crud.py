@@ -1,13 +1,12 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Iterable, Sequence
+from typing import Dict, Iterable, Sequence
 
 from sqlalchemy.orm import Session
 
 from .base import db, get_or_create
-from .models import (
-    ChatPost, ChatPostState, ChatTable, ChatToSource, File, FileTable, Identifier, Post, PostTable, Source, SourceTable
-)
+from .models import (ChatPost, ChatPostState, ChatTable, ChatToSource, File, FileTable, Identifier, Post, PostTable,
+                     Source, SourceTable)
 from .sources import ChannelData, PostUpdate
 from .utils import store_base64
 
@@ -46,6 +45,18 @@ def list_all_sources() -> list[tuple[bool, Source]]:
                 Source(pk=s.id, name=s.name, type=s.type, update_url=s.update_url),
             ) for s in sources
         ]
+
+
+def list_sources_and_posts() -> Dict[int, set]:
+    with db() as session:
+        sources = session.query(SourceTable).all()
+        return {
+            s.id: {
+                x[0] for x in session.query(PostTable.identifier).where(
+                    PostTable.source == s).order_by(PostTable.id.desc()).limit(100)
+            }
+            for s in sources
+        }
 
 
 def keep(message_id: Identifier):

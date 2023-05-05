@@ -6,10 +6,11 @@ feedparser==6.0.*
 sqlalchemy==2.0.*
 python-telegram-bot==20.*
 selenium==3.141.0
-tarn<1.0.0
+tarn>=0.4.3,<1.0.0
 sqlalchemy_utils
 psycopg2-binary
 pydantic>=1.10.0,<2.0.0
 kaggle==1.5.*
 aio-pika==9.0.*
 jboc<1.0.0
+slack_bolt

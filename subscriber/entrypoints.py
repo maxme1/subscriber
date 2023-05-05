@@ -12,7 +12,7 @@ from aiohttp import ClientSession
 from sqlalchemy_utils import create_database, database_exists
 
 from .base import make_engine
-from .crud import get_old_posts, list_all_sources, save_chat_post, save_post
+from .crud import get_old_posts, list_all_sources, list_sources_and_posts, save_chat_post, save_post
 from .destinations import Destination
 from .models import Base, Post, Source
 from .sources import ChannelAdapter, PostUpdate
@@ -23,8 +23,8 @@ ROUTER_QUEUE = 'router'
 
 async def run_source(rabbit_url):
     # todo: will this consume all ram?
-    # todo: fill from the database?
     visited = defaultdict(set)
+    visited.update(list_sources_and_posts())
 
     connection = await connect(rabbit_url, heartbeat=300)
     async with connection, ClientSession() as session:
