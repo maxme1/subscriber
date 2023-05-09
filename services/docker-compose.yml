@@ -6,7 +6,10 @@ x-common-variables: &common-variables
   POSTGRES_URL: 'postgres:postgres@db:5432/subscriber'
 
 x-destination: &destination
-  depends_on: [ 'db', 'rabbitmq' ]
+  depends_on:
+    - db
+    - rabbitmq
+    - router
   build:
     dockerfile: services/main/Dockerfile
     context: ..
@@ -55,7 +58,10 @@ services:
     command: python slack-webhook.py
 
   crawler:
-    depends_on: [ 'db', 'rabbitmq' ]
+    depends_on:
+      - db
+      - rabbitmq
+      - router
 
     deploy:
       resources:

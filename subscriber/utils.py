@@ -54,7 +54,7 @@ def store_base64(encoded):
         with open(file, 'wb') as fd:
             fd.write(base64.b64decode(encoded))
 
-        return build_storage().write(file)
+        return build_storage().write(file).hex()
 
 
 def storage_resolve(key):
