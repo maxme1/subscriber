@@ -59,11 +59,19 @@ def list_sources_and_posts() -> Dict[int, set]:
         }
 
 
+# TODO: message id is clearly not enough
 def keep(message_id: Identifier):
     with db() as session:
         post = session.query(ChatPost).where(ChatPost.message_id == message_id).first()
         if post is not None:
             post.state = ChatPostState.Keeping
+
+
+def delete(message_id: Identifier):
+    with db() as session:
+        post = session.query(ChatPost).where(ChatPost.message_id == message_id).first()
+        if post is not None:
+            post.state = ChatPostState.Deleted
 
 
 def save_post(source: Source, update: PostUpdate, notify: bool):
@@ -114,9 +122,6 @@ def get_old_posts() -> Iterable[tuple[str, Identifier, Identifier]]:
         ).all()
         for chat_post in outdated:
             yield chat_post.chat.type, chat_post.chat.identifier, chat_post.message_id
-
-            chat_post.state = ChatPostState.Deleted
-            session.flush()
 
 
 def wrap_base64_to_hash(session: Session, image):

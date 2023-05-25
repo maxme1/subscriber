@@ -12,7 +12,7 @@ from aiohttp import ClientSession
 from sqlalchemy_utils import create_database, database_exists
 
 from .base import make_engine
-from .crud import get_old_posts, list_all_sources, list_sources_and_posts, save_chat_post, save_post
+from .crud import get_old_posts, list_all_sources, list_sources_and_posts, save_chat_post, save_post, delete
 from .destinations import Destination
 from .models import Base, Post, Source
 from .sources import ChannelAdapter, PostUpdate
@@ -136,6 +136,7 @@ async def run_destination(destination: Destination, rabbit_url: str):
 
                         logger.info('Removing old post %s from %s', message_id, chat_id)
                         await destination.remove(chat_id, message_id)
+                        delete(message_id)
 
                     else:
                         raise TypeError(cmd)
