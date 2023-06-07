@@ -8,6 +8,7 @@ from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 import aio_pika
+from aio_pika import DeliveryMode
 from aiohttp import ClientSession
 from sqlalchemy_utils import create_database, database_exists
 
@@ -29,6 +30,7 @@ async def run_source(rabbit_url):
     connection = await connect(rabbit_url, heartbeat=300)
     async with connection, ClientSession() as session:
         channel = await connection.channel()
+        await channel.declare_queue(ROUTER_QUEUE, durable=True)
 
         while True:
             groups = defaultdict(list)
@@ -53,7 +55,10 @@ async def run_source(rabbit_url):
                                 update.content = await adapter.scrape(update.url, session)
 
                             await channel.default_exchange.publish(
-                                aio_pika.Message(body=json.dumps([source.json(), update.json(), notify]).encode()),
+                                aio_pika.Message(
+                                    body=json.dumps([source.json(), update.json(), notify]).encode(),
+                                    delivery_mode=DeliveryMode.PERSISTENT,
+                                ),
                                 routing_key=ROUTER_QUEUE,
                             )
 
@@ -74,7 +79,10 @@ async def delete_old_posts(channel):
         for chat_type, chat_id, message_id in get_old_posts():
             await channel.default_exchange.publish(
                 # TODO: use an Enum
-                aio_pika.Message(body=json.dumps(['remove', chat_id, message_id]).encode()),
+                aio_pika.Message(
+                    body=json.dumps(['remove', chat_id, message_id]).encode(),
+                    delivery_mode=DeliveryMode.PERSISTENT,
+                ),
                 routing_key=chat_type,
             )
 
@@ -91,7 +99,7 @@ async def run_router(rabbit_url):
         asyncio.create_task(delete_old_posts(channel))
 
         # new posts notification
-        queue = await channel.declare_queue(ROUTER_QUEUE)
+        queue = await channel.declare_queue(ROUTER_QUEUE, durable=True)
         async with queue.iterator() as queue_iter:
             async for message in queue_iter:
                 async with message.process():
@@ -102,9 +110,10 @@ async def run_router(rabbit_url):
                     for chat_id, chat_type, chat_pk, post_pk, post in save_post(source, update, notify):
                         await channel.default_exchange.publish(
                             # TODO: use an Enum
-                            aio_pika.Message(body=json.dumps([
-                                'notify', chat_id, chat_pk, post_pk, post.json()
-                            ]).encode()), routing_key=chat_type,
+                            aio_pika.Message(
+                                body=json.dumps(['notify', chat_id, chat_pk, post_pk, post.json()]).encode(),
+                                delivery_mode=DeliveryMode.PERSISTENT,
+                            ), routing_key=chat_type,
                         )
 
 
@@ -115,11 +124,11 @@ async def run_destination(destination: Destination, rabbit_url: str):
     async with connection:
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=10)
-        queue = await channel.declare_queue(destination.name())
+        queue = await channel.declare_queue(destination.name(), durable=True)
 
         async with queue.iterator() as queue_iter:
             async for message in queue_iter:
-                async with message.process():
+                async with message.process(requeue=True):
                     cmd, chat_id, *args = json.loads(message.body)
 
                     if cmd == 'notify':

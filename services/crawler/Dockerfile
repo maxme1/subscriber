@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3
+FROM continuumio/miniconda3:23.3.1-0
 
 # RUN apt-get update && apt-get install -y xvfb firefox-esr
 ENV PYTHONDONTWRITEBYTECODE 1
