@@ -118,10 +118,8 @@ async def run_router(rabbit_url):
 
 
 async def run_destination(destination: Destination, rabbit_url: str):
-    await destination.start()
-
     connection = await connect(rabbit_url)
-    async with connection:
+    async with connection, destination:
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=10)
         queue = await channel.declare_queue(destination.name(), durable=True)
@@ -129,28 +127,32 @@ async def run_destination(destination: Destination, rabbit_url: str):
         async with queue.iterator() as queue_iter:
             async for message in queue_iter:
                 async with message.process(requeue=True):
-                    cmd, chat_id, *args = json.loads(message.body)
+                    body = message.body
+                    try:
+                        cmd, chat_id, *args = json.loads(body)
 
-                    if cmd == 'notify':
-                        chat_pk, post_pk, post = args
-                        post = Post.parse_raw(post)
+                        if cmd == 'notify':
+                            chat_pk, post_pk, post = args
+                            post = Post.parse_raw(post)
 
-                        logger.info('Notifying %s about %s', chat_id, post.title or post.description[:20])
-                        message_id = await destination.notify(chat_id, post)
-                        if message_id is not None:
-                            save_chat_post(chat_pk, post_pk, message_id)
+                            logger.info('Notifying %s about %s', chat_id, post.title or post.description[:20])
+                            message_id = await destination.notify(chat_id, post)
+                            if message_id is not None:
+                                save_chat_post(chat_pk, post_pk, message_id)
 
-                    elif cmd == 'remove':
-                        message_id, = args
+                        elif cmd == 'remove':
+                            message_id, = args
 
-                        logger.info('Removing old post %s from %s', message_id, chat_id)
-                        await destination.remove(chat_id, message_id)
-                        delete(message_id)
+                            logger.info('Removing old post %s from %s', message_id, chat_id)
+                            await destination.remove(chat_id, message_id)
+                            delete(message_id)
 
-                    else:
-                        raise TypeError(cmd)
+                        else:
+                            raise TypeError(cmd)
 
-    await destination.stop()
+                    except BaseException:
+                        logger.exception('Error while processing message body %s', body)
+                        raise
 
 
 async def connect(rabbit_url, **kwargs):

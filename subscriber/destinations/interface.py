@@ -51,6 +51,12 @@ class Destination:
     async def save_image(self, hash_: str, identifier: str):
         pass
 
+    async def __aenter__(self):
+        await self.start()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.stop()
+
     # abstract
 
     async def start(self):

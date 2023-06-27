@@ -1,5 +1,6 @@
 import logging
 from contextlib import suppress
+from urllib.parse import quote_plus
 
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
 from telegram.constants import ParseMode
@@ -49,6 +50,9 @@ class Telegram(Destination):
     # TODO: add throttling
     async def notify(self, chat_id: Identifier, post: Post) -> Identifier:
         text = f'{post.title}\n{post.description}\n{post.url}'.strip()
+        if '<' in text:
+            text = quote_plus(text)
+        parse_mode = ParseMode.HTML
         image = post.image
 
         markup = InlineKeyboardMarkup.from_row([
@@ -58,7 +62,7 @@ class Telegram(Destination):
 
         if image is None:
             message = await self.bot.send_message(
-                chat_id, text, reply_markup=markup, parse_mode=ParseMode.HTML,
+                chat_id, text, reply_markup=markup, parse_mode=parse_mode,
                 disable_web_page_preview=bool(post.title or post.description),
             )
 
@@ -66,13 +70,13 @@ class Telegram(Destination):
             # TODO: need another adapter?
             with open(storage_resolve(image.internal), 'rb') as img:
                 message = await self.bot.send_photo(
-                    chat_id, img, parse_mode=ParseMode.HTML, caption=text, reply_markup=markup
+                    chat_id, img, parse_mode=parse_mode, caption=text, reply_markup=markup
                 )
                 await self.save_image(image.internal, message.photo[0].file_id)
 
         else:
             message = await self.bot.send_photo(
-                chat_id, image.telegram, parse_mode=ParseMode.HTML, caption=text, reply_markup=markup
+                chat_id, image.telegram, parse_mode=parse_mode, caption=text, reply_markup=markup
             )
 
         return str(message.message_id)
