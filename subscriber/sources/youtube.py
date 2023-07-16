@@ -1,10 +1,10 @@
+import re
 from collections import Counter
 from io import BytesIO
 from typing import AsyncIterable
 
 import feedparser
 from aiohttp import ClientSession
-from lxml import html
 
 from ..utils import get_og_tags, url_to_base64
 from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
@@ -13,6 +13,7 @@ from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
 class YouTube(ChannelAdapter):
     domain = 'youtube.com'
     COOKIES = {'CONSENT': 'YES+999'}
+    CHANNEL_ID_PATTERN = re.compile(r'"channelId":\s*"([^"]+)"')
 
     @classmethod
     async def track(cls, url: str) -> ChannelData:
@@ -20,10 +21,7 @@ class YouTube(ChannelAdapter):
             async with session.get(url, cookies=cls.COOKIES) as response:
                 body = await response.text()
 
-            doc = html.fromstring(body)
-            channel_ids = Counter([
-                d.attrib['content'] for d in doc.xpath('//meta[@itemprop="channelId"]')
-            ]).most_common(1)
+            channel_ids = Counter(x.group(1) for x in cls.CHANNEL_ID_PATTERN.finditer(body)).most_common(1)
             if not channel_ids:
                 raise ValueError('This not a valid youtube channel.')
 
