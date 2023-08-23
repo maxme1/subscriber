@@ -49,7 +49,10 @@ class Telegram(Destination):
 
     # TODO: add throttling
     async def notify(self, chat_id: Identifier, post: Post) -> Identifier:
-        text = f'{post.title}\n{post.description}\n{post.url}'.strip()
+        description = post.description
+        if len(description) > 3800:
+            description = description[:3800] + '...'
+        text = f'{post.title}\n{description}\n{post.url}'.strip()
         if '<' in text:
             text = quote_plus(text)
         parse_mode = ParseMode.HTML
@@ -63,7 +66,7 @@ class Telegram(Destination):
         if image is None:
             message = await self.bot.send_message(
                 chat_id, text, reply_markup=markup, parse_mode=parse_mode,
-                disable_web_page_preview=bool(post.title or post.description),
+                disable_web_page_preview=bool(post.title or description),
             )
 
         elif image.telegram is None:
