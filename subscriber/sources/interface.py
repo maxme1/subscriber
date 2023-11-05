@@ -10,6 +10,11 @@ TYPE_TO_CHANNEL = {}
 DOMAIN_TO_CHANNEL = {}
 
 
+class VisibleError(Exception):
+    def __init__(self, message: str):
+        self.message = message
+
+
 class Content(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
@@ -35,7 +40,7 @@ class PostUpdate(BaseModel):
 
 
 class ChannelAdapter(ABC):
-    domain: str
+    domain: str | tuple[str]
     queue: str = 'main'
     add_name: bool = False
 
@@ -69,6 +74,10 @@ class ChannelAdapter(ABC):
 
     def __init_subclass__(cls, **kwargs):
         assert cls.__name__ not in TYPE_TO_CHANNEL
-        assert cls.domain not in DOMAIN_TO_CHANNEL
-        TYPE_TO_CHANNEL[cls.__name__] = cls
-        DOMAIN_TO_CHANNEL[cls.domain] = cls
+        domains = cls.domain
+        if isinstance(domains, str):
+            domains = domains,
+        for domain in domains:
+            assert domain not in DOMAIN_TO_CHANNEL
+            TYPE_TO_CHANNEL[cls.__name__] = cls
+            DOMAIN_TO_CHANNEL[domain] = cls

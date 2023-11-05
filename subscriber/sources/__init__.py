@@ -1,5 +1,5 @@
 from .grand_challenge import GrandChallenge
-from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
+from .interface import ChannelAdapter, ChannelData, Content, PostUpdate, VisibleError
 from .kaggle import Kaggle
 from .songkick import SongKick
 from .nitter import Twitter

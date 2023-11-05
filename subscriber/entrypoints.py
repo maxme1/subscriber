@@ -50,8 +50,7 @@ async def run_source(rabbit_url):
                             logger.info('New post: %s for %s (%s)', update.id, source.name, source.type)
                             visited[source.pk].add(update.id)
 
-                            content = update.content
-                            if content is None:
+                            if update.content is None:
                                 update.content = await adapter.scrape(update.url, session)
 
                             await channel.default_exchange.publish(

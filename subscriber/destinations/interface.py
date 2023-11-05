@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 from ..crud import keep, list_chat_sources, subscribe, unsubscribe
 from ..models import Identifier, Post, Source
-from ..sources import ChannelAdapter
+from ..sources import ChannelAdapter, VisibleError
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,9 @@ class Destination:
 
             subscribe(chat_id, cls.name(), adapter.name(), url, data)
             return 'Done'
+
+        except VisibleError as e:
+            return e.message
 
         except Exception:
             logger.exception('Exception while subscribing')
