@@ -5,24 +5,10 @@ x-common-variables: &common-variables
   RABBIT_URL: 'amqp://guest:guest@rabbit/'
   POSTGRES_URL: 'postgres:postgres@db:5432/subscriber'
 
-x-destination: &destination
-  depends_on:
-    - db
-    - rabbitmq
-    - router
-  build:
-    dockerfile: services/main/Dockerfile
-    context: ..
-
-  volumes:
-    - storage:/storage
-    - logs:/logs
-
-  restart: on-failure
-
 services:
-  router:
-    depends_on: [ 'db', 'rabbitmq' ]
+  main:
+    depends_on:
+      - db
     build:
       dockerfile: services/main/Dockerfile
       context: ..
@@ -34,54 +20,11 @@ services:
     environment:
       <<: *common-variables
       STORAGE_PATH: /storage
-
-    command: python router.py
-    restart: on-failure
-
-  telegram:
-    <<: *destination
-
-    environment:
-      <<: *common-variables
-      STORAGE_PATH: /storage
       TELEGRAM_TOKEN: ${TELEGRAM_TOKEN}
-
-    command: python tg.py
-
-  slack-webhook:
-    <<: *destination
-
-    environment:
-      <<: *common-variables
-      STORAGE_PATH: /storage
-
-    command: python slack-webhook.py
-
-  crawler:
-    depends_on:
-      - db
-      - rabbitmq
-      - router
-
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: '2G'
-
-    build:
-      dockerfile: services/crawler/Dockerfile
-      context: ..
-
-    volumes:
-      - logs:/logs
-
-    environment:
-      <<: *common-variables
       KAGGLE_USERNAME: ${KAGGLE_USERNAME}
       KAGGLE_KEY: ${KAGGLE_KEY}
 
-    command: python entrypoint.py
+    command: python main.py
     restart: on-failure
 
   db:
@@ -94,12 +37,6 @@ services:
       - db:/db
     expose:
       - 5432
-
-  rabbitmq:
-    image: rabbitmq:latest
-    hostname: rabbit
-    expose:
-      - 5672
 
 volumes:
   db:

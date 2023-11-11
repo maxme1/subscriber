@@ -1,37 +1,43 @@
 import asyncio
-import json
 import logging
 import os
+from asyncio import Queue
 from collections import defaultdict
-from contextlib import suppress
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
-import aio_pika
-from aio_pika import DeliveryMode
 from aiohttp import ClientSession
 from sqlalchemy_utils import create_database, database_exists
 
 from .base import make_engine
 from .crud import get_old_posts, list_all_sources, list_sources_and_posts, save_chat_post, save_post, delete
 from .destinations import Destination
-from .models import Base, Post, Source
-from .sources import ChannelAdapter, PostUpdate
+from .models import Base, Post
+from .sources import ChannelAdapter
 
 logger = logging.getLogger(__name__)
-ROUTER_QUEUE = 'router'
 
 
-async def run_source(rabbit_url):
+async def start(destinations: list[Destination]):
+    queue, queues, tasks = Queue(), {}, []
+    for dst in destinations:
+        q = queues[dst.name()] = Queue()
+        tasks.append(run_destination(dst, q))
+
+    await asyncio.gather(
+        run_source(queue),
+        run_router(queue, queues),
+        delete_old_posts(queues),
+        *tasks,
+    )
+
+
+async def run_source(queue: Queue):
     # todo: will this consume all ram?
     visited = defaultdict(set)
     visited.update(list_sources_and_posts())
 
-    connection = await connect(rabbit_url, heartbeat=300)
-    async with connection, ClientSession() as session:
-        channel = await connection.channel()
-        await channel.declare_queue(ROUTER_QUEUE, durable=True)
-
+    async with ClientSession() as session:
         while True:
             groups = defaultdict(list)
             for notify, source in list_all_sources():
@@ -53,13 +59,7 @@ async def run_source(rabbit_url):
                             if update.content is None:
                                 update.content = await adapter.scrape(update.url, session)
 
-                            await channel.default_exchange.publish(
-                                aio_pika.Message(
-                                    body=json.dumps([source.json(), update.json(), notify]).encode(),
-                                    delivery_mode=DeliveryMode.PERSISTENT,
-                                ),
-                                routing_key=ROUTER_QUEUE,
-                            )
+                            await queue.put((source, update, notify))
 
                     except Exception as e:
                         logger.error(
@@ -73,94 +73,57 @@ async def run_source(rabbit_url):
             await asyncio.sleep(600)
 
 
-async def delete_old_posts(channel):
+async def delete_old_posts(queues: dict[str, Queue]):
     while True:
         for chat_type, chat_id, message_id in get_old_posts():
-            await channel.default_exchange.publish(
-                # TODO: use an Enum
-                aio_pika.Message(
-                    body=json.dumps(['remove', chat_id, message_id]).encode(),
-                    delivery_mode=DeliveryMode.PERSISTENT,
-                ),
-                routing_key=chat_type,
-            )
+            await queues[chat_type].put(('remove', chat_id, message_id))
 
         await asyncio.sleep(3600)
 
 
-async def run_router(rabbit_url):
-    connection = await connect(rabbit_url)
-    async with connection:
-        channel = await connection.channel()
-        await channel.set_qos(prefetch_count=10)
-
-        # old posts removal
-        asyncio.create_task(delete_old_posts(channel))
-
-        # new posts notification
-        queue = await channel.declare_queue(ROUTER_QUEUE, durable=True)
-        async with queue.iterator() as queue_iter:
-            async for message in queue_iter:
-                async with message.process():
-                    source, update, notify = json.loads(message.body)
-                    source, update = Source.parse_raw(source), PostUpdate.parse_raw(update)
-                    logger.debug('Got update %s for source %s (%s)', update.id, source.name, source.type)
-
-                    for chat_id, chat_type, chat_pk, post_pk, post in save_post(source, update, notify):
-                        await channel.default_exchange.publish(
-                            # TODO: use an Enum
-                            aio_pika.Message(
-                                body=json.dumps(['notify', chat_id, chat_pk, post_pk, post.json()]).encode(),
-                                delivery_mode=DeliveryMode.PERSISTENT,
-                            ), routing_key=chat_type,
-                        )
-
-
-async def run_destination(destination: Destination, rabbit_url: str):
-    connection = await connect(rabbit_url)
-    async with connection, destination:
-        channel = await connection.channel()
-        await channel.set_qos(prefetch_count=10)
-        queue = await channel.declare_queue(destination.name(), durable=True)
-
-        async with queue.iterator() as queue_iter:
-            async for message in queue_iter:
-                async with message.process(requeue=True):
-                    body = message.body
-                    try:
-                        cmd, chat_id, *args = json.loads(body)
-
-                        if cmd == 'notify':
-                            chat_pk, post_pk, post = args
-                            post = Post.parse_raw(post)
-
-                            logger.info('Notifying %s about %s', chat_id, post.title or post.description[:20])
-                            message_id = await destination.notify(chat_id, post)
-                            if message_id is not None:
-                                save_chat_post(chat_pk, post_pk, message_id)
-
-                        elif cmd == 'remove':
-                            message_id, = args
-
-                            logger.info('Removing old post %s from %s', message_id, chat_id)
-                            await destination.remove(chat_id, message_id)
-                            delete(message_id)
-
-                        else:
-                            raise TypeError(cmd)
-
-                    except BaseException:
-                        logger.exception('Error while processing message body %s', body)
-                        raise
-
-
-async def connect(rabbit_url, **kwargs):
-    """ A simple way to wait for rabbit to be up and running """
+async def run_router(updates: Queue, queues: dict[str, Queue]):
     while True:
-        with suppress(aio_pika.exceptions.AMQPConnectionError):
-            return await aio_pika.connect_robust(rabbit_url, **kwargs)
+        source, update, notify = await updates.get()
+        logger.debug('Got update %s for source %s (%s)', update.id, source.name, source.type)
 
-        await asyncio.sleep(1)
+        # TODO: without persistence some message might get lost
+        for chat_id, chat_type, chat_pk, post_pk, post in save_post(source, update, notify):
+            await queues[chat_type].put(('notify', chat_id, chat_pk, post_pk, post.json()))
+
+        updates.task_done()
+
+
+async def run_destination(destination: Destination, queue: Queue):
+    async with destination:
+        while True:
+            message = await queue.get()
+            try:
+                cmd, chat_id, *args = message
+
+                if cmd == 'notify':
+                    chat_pk, post_pk, post = args
+                    post = Post.parse_raw(post)
+
+                    logger.info('Notifying %s about %s', chat_id, post.title or post.description[:20])
+                    message_id = await destination.notify(chat_id, post)
+                    if message_id is not None:
+                        save_chat_post(chat_pk, post_pk, message_id)
+
+                elif cmd == 'remove':
+                    message_id, = args
+
+                    logger.info('Removing old post %s from %s', message_id, chat_id)
+                    await destination.remove(chat_id, message_id)
+                    delete(message_id)
+
+                else:
+                    raise TypeError(cmd)
+
+            except BaseException:
+                logger.exception('Error while processing message %s', message)
+                raise
+
+            queue.task_done()
 
 
 def init():

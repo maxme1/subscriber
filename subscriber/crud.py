@@ -5,8 +5,10 @@ from typing import Dict, Iterable, Sequence
 from sqlalchemy.orm import Session
 
 from .base import db, get_or_create
-from .models import (ChatPost, ChatPostState, ChatTable, ChatToSource, File, FileTable, Identifier, Post, PostTable,
-                     Source, SourceTable)
+from .models import (
+    ChatPost, ChatPostState, ChatTable, ChatToSource, File, FileTable, Identifier, Post, PostTable,
+    Source, SourceTable
+)
 from .sources import ChannelData, PostUpdate
 from .utils import store_base64
 
