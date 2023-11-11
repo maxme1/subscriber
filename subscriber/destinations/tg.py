@@ -55,7 +55,7 @@ class Telegram(Destination):
         text = f'{post.title}\n{description}\n{post.url}'.strip()
         if '<' in text:
             text = quote_plus(text)
-        parse_mode = ParseMode.MARKDOWN_V2
+        parse_mode = ParseMode.HTML
         image = post.image
 
         markup = InlineKeyboardMarkup.from_row([

@@ -14,4 +14,3 @@ kaggle==1.5.*
 aio-pika==9.0.*
 jboc<1.0.0
 slack_bolt
-markdownify

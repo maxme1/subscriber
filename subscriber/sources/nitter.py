@@ -4,7 +4,6 @@ from typing import AsyncIterable
 from urllib.parse import urlparse
 
 import feedparser
-import markdownify
 from aiohttp import ClientSession
 
 from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
@@ -37,7 +36,7 @@ class Twitter(ChannelAdapter):
             body = await response.read()
 
         for post in feedparser.parse(BytesIO(body))['entries']:
-            text = markdownify.markdownify(post['description'])
+            text = post['title_detail']['value']
             identifier = link = post['link']
             assert identifier.startswith(base), identifier
             identifier = identifier.removeprefix(base)
