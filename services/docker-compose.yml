@@ -1,61 +1,23 @@
 version: "3.9"
 
-x-common-variables: &common-variables
-  LOGS_PATH: /logs
-  RABBIT_URL: 'amqp://guest:guest@rabbit/'
-  POSTGRES_URL: 'postgres:postgres@db:5432/subscriber'
-
 services:
   main:
-    depends_on:
-      - db
     build:
       dockerfile: services/main/Dockerfile
       context: ..
 
     volumes:
-      - storage:/storage
-      - logs:/logs
+      - '${VOLUMES_ROOT}/storage:/storage'
+      - '${VOLUMES_ROOT}/logs:/logs'
+      - '${VOLUMES_ROOT}/db:/db'
 
     environment:
-      <<: *common-variables
       STORAGE_PATH: /storage
+      LOGS_PATH: /logs
+      DB_PATH: /db/db.sqlite3
       TELEGRAM_TOKEN: ${TELEGRAM_TOKEN}
       KAGGLE_USERNAME: ${KAGGLE_USERNAME}
       KAGGLE_KEY: ${KAGGLE_KEY}
 
     command: python main.py
     restart: on-failure
-
-  db:
-    image: 'postgres:14.5'
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      PGDATA: /db/postgres
-    volumes:
-      - db:/db
-    expose:
-      - 5432
-
-volumes:
-  db:
-    driver: local
-    driver_opts:
-      o: bind
-      type: none
-      device: "${VOLUMES_ROOT}/db"
-
-  storage:
-    driver: local
-    driver_opts:
-      o: bind
-      type: none
-      device: "${VOLUMES_ROOT}/storage"
-
-  logs:
-    driver: local
-    driver_opts:
-      o: bind
-      type: none
-      device: "${VOLUMES_ROOT}/logs"

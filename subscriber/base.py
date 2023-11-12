@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 # TODO: refactor this
 @cache
 def make_engine():
-    return create_engine('postgresql://' + os.environ['POSTGRES_URL'])
+    return create_engine('sqlite:///' + os.environ['DB_PATH'])
 
 
 @cache
