@@ -16,7 +16,7 @@ class YouTube(ChannelAdapter):
     COOKIES = None, {'CONSENT': 'YES+999'}, {'CONSENT': 'PENDING+999'}, {
         'CONSENT': 'YES+cb.20210328-17-p0.en-GB+FX+{}'.format(random.randint(100, 999))
     }
-    CHANNEL_ID_PATTERN = re.compile(r'"channelId":\s*"([^"]+)"')
+    CHANNEL_ID_PATTERN = re.compile(r'"browseId":\s*"([^"]+)"')
 
     @classmethod
     async def track(cls, url: str) -> ChannelData:
