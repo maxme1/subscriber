@@ -1,10 +1,10 @@
 import re
 from collections import Counter
 from io import BytesIO
-import random
 from typing import AsyncIterable
 
 import feedparser
+import requests
 from aiohttp import ClientSession
 
 from ..utils import get_og_tags, url_to_base64
@@ -13,33 +13,25 @@ from .interface import ChannelAdapter, ChannelData, Content, PostUpdate, Visible
 
 class YouTube(ChannelAdapter):
     domain = 'youtube.com'
-    COOKIES = None, {'CONSENT': 'YES+999'}, {'CONSENT': 'PENDING+999'}, {
-        'CONSENT': 'YES+cb.20210328-17-p0.en-GB+FX+{}'.format(random.randint(100, 999))
-    }
     CHANNEL_ID_PATTERN = re.compile(r'"browseId":\s*"([^"]+)"')
 
     @classmethod
     async def track(cls, url: str) -> ChannelData:
-        for cookies in cls.COOKIES:
-            async with ClientSession() as session:
-                async with session.get(url, cookies=cookies) as response:
-                    body = await response.text()
+        body = requests.get(url).text
+        channel_ids = Counter(x.group(1) for x in cls.CHANNEL_ID_PATTERN.finditer(body)).most_common(1)
+        if not channel_ids:
+            raise VisibleError('This not a valid youtube channel.')
 
-                channel_ids = Counter(x.group(1) for x in cls.CHANNEL_ID_PATTERN.finditer(body)).most_common(1)
-                if not channel_ids:
-                    continue
+        tags = get_og_tags(body)
+        async with ClientSession() as session:
+            image = await url_to_base64(tags.get('image'), session)
 
-                tags = get_og_tags(body)
-                image = await url_to_base64(tags.get('image'), session)
+        channel_id = channel_ids[0][0]
+        update_url = f'https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}'
+        normalized_url = f'https://www.youtube.com/channel/{channel_id}'
 
-                channel_id = channel_ids[0][0]
-                update_url = f'https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}'
-                normalized_url = f'https://www.youtube.com/channel/{channel_id}'
-
-                name = feedparser.parse(update_url)['feed']['title']
-                return ChannelData(update_url=update_url, name=name, image=image, url=normalized_url)
-
-        raise VisibleError('This not a valid youtube channel.')
+        name = feedparser.parse(update_url)['feed']['title']
+        return ChannelData(update_url=update_url, name=name, image=image, url=normalized_url)
 
     async def update(self, update_url: str, name: str, session: ClientSession) -> AsyncIterable[PostUpdate]:
         async with session.get(update_url) as response:
