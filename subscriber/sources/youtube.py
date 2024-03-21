@@ -17,7 +17,7 @@ class YouTube(ChannelAdapter):
 
     @classmethod
     async def track(cls, url: str) -> ChannelData:
-        body = requests.get(url).text
+        body = (await aget(url)).text
         channel_ids = Counter(x.group(1) for x in cls.CHANNEL_ID_PATTERN.finditer(body)).most_common(1)
         if not channel_ids:
             raise VisibleError('This not a valid youtube channel.')
@@ -41,14 +41,17 @@ class YouTube(ChannelAdapter):
             yield PostUpdate(id=post['id'], url=post['link'])
 
     async def scrape(self, post_url: str, session: ClientSession) -> Content:
-        for cookies in self.COOKIES:
-            async with session.get(post_url, cookies=cookies) as response:
-                fields = get_og_tags(await response.text())
+        fields = get_og_tags((await aget(post_url)).text)
 
-            if 'title' in fields:
-                return Content(
-                    title=fields['title'], description=fields['description'],
-                    image=await url_to_base64(fields['image'], session),
-                )
+        if 'title' in fields:
+            return Content(
+                title=fields['title'], description=fields['description'],
+                image=await url_to_base64(fields['image'], session),
+            )
 
         return Content()
+
+
+# TODO: make this truly async
+async def aget(url):
+    return requests.get(url)
