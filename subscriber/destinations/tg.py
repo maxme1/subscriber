@@ -1,5 +1,6 @@
 import logging
 from contextlib import suppress
+from urllib.parse import quote_plus
 
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
 from telegram.constants import ParseMode
@@ -9,6 +10,7 @@ from telegram.ext import Application, CallbackContext, CallbackQueryHandler, Com
 from ..models import Identifier, Post
 from ..utils import URL_PATTERN, drop_prefix, storage_resolve
 from .interface import Destination
+
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +50,13 @@ class Telegram(Destination):
 
     # TODO: add throttling
     async def notify(self, chat_id: Identifier, post: Post) -> Identifier:
-        text = f'{post.title}\n{post.description}\n{post.url}'.strip()
+        description = post.description
+        if len(description) > 3800:
+            description = description[:3800] + '...'
+        text = f'{post.title}\n{description}\n{post.url}'.strip()
+        if '<' in text:
+            text = quote_plus(text)
+        parse_mode = ParseMode.HTML
         image = post.image
 
         markup = InlineKeyboardMarkup.from_row([
@@ -58,21 +66,21 @@ class Telegram(Destination):
 
         if image is None:
             message = await self.bot.send_message(
-                chat_id, text, reply_markup=markup, parse_mode=ParseMode.HTML,
-                disable_web_page_preview=bool(post.title or post.description),
+                chat_id, text, reply_markup=markup, parse_mode=parse_mode,
+                disable_web_page_preview=bool(post.title or description),
             )
 
         elif image.telegram is None:
             # TODO: need another adapter?
             with open(storage_resolve(image.internal), 'rb') as img:
                 message = await self.bot.send_photo(
-                    chat_id, img, parse_mode=ParseMode.HTML, caption=text, reply_markup=markup
+                    chat_id, img, parse_mode=parse_mode, caption=text, reply_markup=markup
                 )
                 await self.save_image(image.internal, message.photo[0].file_id)
 
         else:
             message = await self.bot.send_photo(
-                chat_id, image.telegram, parse_mode=ParseMode.HTML, caption=text, reply_markup=markup
+                chat_id, image.telegram, parse_mode=parse_mode, caption=text, reply_markup=markup
             )
 
         return str(message.message_id)
@@ -167,8 +175,9 @@ async def fallback(update: Update, context: CallbackContext):
 
 
 async def on_error(update, context: CallbackContext):
-    # raise context.error
-    logger.warning('Update "%s" caused error %s: %s', update, type(context.error).__name__, context.error)
+    logger.error(
+        'Update "%s" caused error %s: %s', update, type(context.error).__name__, context.error, exc_info=context.error
+    )
 
 
 def make_keyboard(channels):

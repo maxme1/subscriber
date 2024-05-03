@@ -1,5 +1,4 @@
 import contextlib
-import os
 from functools import cache
 
 from sqlalchemy import create_engine
@@ -7,11 +6,13 @@ from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 
+from .settings import config
+
 
 # TODO: refactor this
 @cache
 def make_engine():
-    return create_engine('postgresql://' + os.environ['POSTGRES_URL'])
+    return create_engine(f'sqlite:///{config.db_path}')
 
 
 @cache

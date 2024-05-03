@@ -6,12 +6,13 @@ from aiohttp import ClientSession
 from lxml import html
 
 from ..utils import url_to_base64
-from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
+from .interface import ChannelData, Content, DomainMatch, PostUpdate
+
 
 logger = logging.getLogger(__name__)
 
 
-class GrandChallenge(ChannelAdapter):
+class GrandChallenge(DomainMatch):
     domain = 'grand-challenge.org'
 
     @staticmethod

@@ -1,5 +1,4 @@
 import base64
-import os
 import re
 import tempfile
 from functools import cache
@@ -8,7 +7,10 @@ from typing import Union
 
 import aiohttp
 import lxml.html
-from tarn import Disk, Storage
+from tarn import HashKeyStorage
+
+from subscriber.settings import config
+
 
 URL_PATTERN = re.compile(
     r'^(?:http|ftp)s?://'  # http:// or https://
@@ -22,8 +24,8 @@ URL_PATTERN = re.compile(
 
 
 @cache
-def build_storage():
-    return Storage(Disk(os.environ['STORAGE_PATH']))
+def build_storage() -> HashKeyStorage:
+    return HashKeyStorage(config.storage_path)
 
 
 def drop_prefix(x, prefix):
@@ -54,14 +56,14 @@ def store_base64(encoded):
         with open(file, 'wb') as fd:
             fd.write(base64.b64decode(encoded))
 
-        return build_storage().write(file)
+        return build_storage().write(file).hex()
 
 
 def storage_resolve(key):
-    return build_storage().resolve(key)
+    return build_storage().read(lambda x: x, key)
 
 
-async def url_to_base64(url: str, session: aiohttp.ClientSession):
+async def url_to_base64(url: str | None, session: aiohttp.ClientSession) -> str | None:
     if url is None:
         return
 

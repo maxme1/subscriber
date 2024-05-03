@@ -1,10 +1,10 @@
 import logging
 from typing import Sequence
-from urllib.parse import urlparse
 
 from ..crud import keep, list_chat_sources, subscribe, unsubscribe
 from ..models import Identifier, Post, Source
-from ..sources import ChannelAdapter
+from ..sources import ChannelAdapter, VisibleError
+
 
 logger = logging.getLogger(__name__)
 
@@ -16,13 +16,9 @@ class Destination:
 
     @classmethod
     async def subscribe(cls, chat_id: Identifier, url: str) -> str:
-        parts = urlparse(url)
-        domain = '.'.join(parts.netloc.split('.')[-2:]).lower()
-
-        try:
-            adapter = ChannelAdapter.dispatch_domain(domain)
-        except KeyError:
-            return f'Unknown domain: {domain}'
+        adapter = ChannelAdapter.dispatch_url(url)
+        if adapter is None:
+            return f'Unknown url: {url}'
 
         try:
             data = await adapter.track(url)
@@ -31,6 +27,9 @@ class Destination:
 
             subscribe(chat_id, cls.name(), adapter.name(), url, data)
             return 'Done'
+
+        except VisibleError as e:
+            return e.message
 
         except Exception:
             logger.exception('Exception while subscribing')
@@ -50,6 +49,12 @@ class Destination:
 
     async def save_image(self, hash_: str, identifier: str):
         pass
+
+    async def __aenter__(self):
+        await self.start()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.stop()
 
     # abstract
 

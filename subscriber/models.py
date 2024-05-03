@@ -1,15 +1,10 @@
 import enum
 
-from pydantic import BaseModel, Extra
+from pydantic import BaseModel
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, Unicode, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
 from .base import Base
-
-
-class NoExtra(BaseModel):
-    class Config:
-        extra = Extra.forbid
 
 
 Identifier = str
@@ -25,7 +20,7 @@ class FileTable(Base):
     telegram = Column(Unicode, nullable=True, unique=True)
 
 
-class File(NoExtra):
+class File(BaseModel, extra='forbid'):
     internal: Identifier
     telegram: Identifier | None
 

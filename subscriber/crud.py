@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Iterable, Sequence
+from typing import Dict, Iterable, Sequence
 
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,7 @@ from .models import (
 )
 from .sources import ChannelData, PostUpdate
 from .utils import store_base64
+
 
 logger = logging.getLogger(__name__)
 
@@ -48,11 +49,31 @@ def list_all_sources() -> list[tuple[bool, Source]]:
         ]
 
 
+def list_sources_and_posts() -> Dict[int, set]:
+    with db() as session:
+        sources = session.query(SourceTable).all()
+        return {
+            s.id: {
+                x[0] for x in session.query(PostTable.identifier).where(
+                    PostTable.source == s).order_by(PostTable.id.desc()).limit(100)
+            }
+            for s in sources
+        }
+
+
+# TODO: message id is clearly not enough
 def keep(message_id: Identifier):
     with db() as session:
         post = session.query(ChatPost).where(ChatPost.message_id == message_id).first()
         if post is not None:
             post.state = ChatPostState.Keeping
+
+
+def delete(message_id: Identifier):
+    with db() as session:
+        post = session.query(ChatPost).where(ChatPost.message_id == message_id).first()
+        if post is not None:
+            post.state = ChatPostState.Deleted
 
 
 def save_post(source: Source, update: PostUpdate, notify: bool):
@@ -103,9 +124,6 @@ def get_old_posts() -> Iterable[tuple[str, Identifier, Identifier]]:
         ).all()
         for chat_post in outdated:
             yield chat_post.chat.type, chat_post.chat.identifier, chat_post.message_id
-
-            chat_post.state = ChatPostState.Deleted
-            session.flush()
 
 
 def wrap_base64_to_hash(session: Session, image):

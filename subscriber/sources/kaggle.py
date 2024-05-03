@@ -2,10 +2,10 @@ from typing import AsyncIterable
 
 from aiohttp import ClientSession
 
-from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
+from .interface import ChannelData, Content, DomainMatch, PostUpdate
 
 
-class Kaggle(ChannelAdapter):
+class Kaggle(DomainMatch):
     domain = 'kaggle.com'
 
     @staticmethod

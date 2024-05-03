@@ -6,11 +6,11 @@ from urllib.parse import urlparse
 import feedparser
 from aiohttp import ClientSession
 
-from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
+from .interface import ChannelData, Content, DomainMatch, PostUpdate
 
 
-class Twitter(ChannelAdapter):
-    domain = 'twitter.com'
+class Twitter(DomainMatch):
+    domain = 'twitter.com', 'nitter.cz'
 
     GROUP_NAME = re.compile(r'^/(\w+)$', flags=re.IGNORECASE)
     TWEET = re.compile(r'^.*/status/\d+$')
@@ -36,14 +36,14 @@ class Twitter(ChannelAdapter):
             body = await response.read()
 
         for post in feedparser.parse(BytesIO(body))['entries']:
-            text = post['title_detail']
+            text = post['title_detail']['value']
             identifier = link = post['link']
             assert identifier.startswith(base), identifier
             identifier = identifier.removeprefix(base)
             if identifier.endswith('#m'):
                 identifier = identifier.removesuffix('#m')
 
-            yield PostUpdate(id=identifier, url=link, content=Content(description=text['value']))
+            yield PostUpdate(id=identifier, url=link, content=Content(description=text))
 
     async def scrape(self, post_url: str, session: ClientSession) -> Content:
         raise NotImplementedError

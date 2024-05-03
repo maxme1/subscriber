@@ -2,12 +2,19 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import AsyncIterable, Optional, Type
+from urllib.parse import urlparse
 
 from aiohttp import ClientSession
 from pydantic import BaseModel
 
-TYPE_TO_CHANNEL = {}
+
+TYPE_TO_CHANNEL: dict[str, Type[ChannelAdapter]] = {}
 DOMAIN_TO_CHANNEL = {}
+
+
+class VisibleError(Exception):
+    def __init__(self, message: str):
+        self.message = message
 
 
 class Content(BaseModel):
@@ -35,9 +42,13 @@ class PostUpdate(BaseModel):
 
 
 class ChannelAdapter(ABC):
-    domain: str
     queue: str = 'main'
     add_name: bool = False
+
+    @classmethod
+    @abstractmethod
+    def match(cls, url: str) -> bool:
+        """ Check if the provided url can be handled by the adapter """
 
     @staticmethod
     @abstractmethod
@@ -60,15 +71,39 @@ class ChannelAdapter(ABC):
         return cls.__name__
 
     @staticmethod
-    def dispatch_type(type) -> Type[ChannelAdapter]:
+    def dispatch_type(type: str) -> Type[ChannelAdapter]:
         return TYPE_TO_CHANNEL[type]
 
     @staticmethod
-    def dispatch_domain(domain) -> Type[ChannelAdapter]:
-        return DOMAIN_TO_CHANNEL[domain]
+    def dispatch_url(url: str) -> Type[ChannelAdapter] | None:
+        for adapter in TYPE_TO_CHANNEL.values():
+            if adapter.match(url):
+                return adapter
+
+    def __init_subclass__(cls, abstract: bool = False):
+        super().__init_subclass__()
+        if not abstract:
+            assert cls.__name__ not in TYPE_TO_CHANNEL
+            TYPE_TO_CHANNEL[cls.__name__] = cls
+
+
+class DomainMatch(ChannelAdapter, ABC, abstract=True):
+    domain: str | tuple[str]
+
+    @classmethod
+    def match(cls, url: str) -> bool:
+        parts = urlparse(url)
+        domain = '.'.join(parts.netloc.split('.')[-2:]).lower()
+        domains = cls.domain
+        if isinstance(domains, str):
+            domains = domains,
+        return domain in domains
 
     def __init_subclass__(cls, **kwargs):
-        assert cls.__name__ not in TYPE_TO_CHANNEL
-        assert cls.domain not in DOMAIN_TO_CHANNEL
-        TYPE_TO_CHANNEL[cls.__name__] = cls
-        DOMAIN_TO_CHANNEL[cls.domain] = cls
+        super().__init_subclass__(**kwargs)
+        domains = cls.domain
+        if isinstance(domains, str):
+            domains = domains,
+        for domain in domains:
+            assert domain not in DOMAIN_TO_CHANNEL
+            DOMAIN_TO_CHANNEL[domain] = cls
