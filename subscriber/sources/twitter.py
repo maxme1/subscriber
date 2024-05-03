@@ -16,10 +16,10 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.remote.webelement import WebElement
 
 from ..utils import file_to_base64
-from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
+from .interface import ChannelData, Content, DomainMatch, PostUpdate
 
 
-class Twitter(ChannelAdapter):
+class Twitter(DomainMatch):
     domain = 'twitter.com'
     queue = 'selenium'
 

@@ -5,6 +5,7 @@ import requests
 from ..models import Identifier, Post
 from .interface import Destination
 
+
 logger = logging.getLogger(__name__)
 
 

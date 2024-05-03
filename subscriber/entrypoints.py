@@ -1,19 +1,19 @@
 import asyncio
 import logging
-import os
 from asyncio import Queue
 from collections import defaultdict
 from logging.handlers import TimedRotatingFileHandler
-from pathlib import Path
 
 from aiohttp import ClientSession
 from sqlalchemy_utils import create_database, database_exists
 
 from .base import make_engine
-from .crud import get_old_posts, list_all_sources, list_sources_and_posts, save_chat_post, save_post, delete
+from .crud import delete, get_old_posts, list_all_sources, list_sources_and_posts, save_chat_post, save_post
 from .destinations import Destination
 from .models import Base, Post
+from .settings import config
 from .sources import ChannelAdapter
+
 
 logger = logging.getLogger(__name__)
 
@@ -128,10 +128,9 @@ async def run_destination(destination: Destination, queue: Queue):
 
 def init():
     # storage
-    storage_path = os.environ.get('STORAGE_PATH')
-    if storage_path is not None and not list(Path(storage_path).iterdir()):
-        with open(Path(storage_path) / 'config.yml', 'w') as config:
-            config.write('hash: sha256\nlevels: [ 1, 31 ]')
+    if list(config.storage_path.iterdir()):
+        with open(config.storage_path / 'config.yml', 'w') as file:
+            file.write('hash: sha256\nlevels: [ 1, 31 ]')
 
     # database
     engine = make_engine()
@@ -145,10 +144,9 @@ def init():
     logger_ = logging.getLogger('subscriber')
     logger_.setLevel(logging.INFO)
     _add_handler(logger_, logging.StreamHandler(), logging.INFO)
-    logs_path = os.environ.get('LOGS_PATH')
-    if logs_path is not None:
+    if config.logs_path is not None:
         _add_handler(
-            logger_, TimedRotatingFileHandler(Path(logs_path) / 'warning.log', when='midnight'), logging.WARNING
+            logger_, TimedRotatingFileHandler(config.logs_path / 'warning.log', when='midnight'), logging.WARNING
         )
 
 

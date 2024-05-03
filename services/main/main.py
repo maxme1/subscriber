@@ -1,14 +1,15 @@
 import asyncio
 import logging
-import os
 
 from subscriber.destinations import SlackWebhook, Telegram
 from subscriber.entrypoints import init, start
+from subscriber.settings import config
+
 
 logging.getLogger('telegram').setLevel(logging.CRITICAL)
 
 init()
 asyncio.run(start([
-    Telegram(os.environ['TELEGRAM_TOKEN']),
+    Telegram(config.telegram_token),
     SlackWebhook(),
 ]))

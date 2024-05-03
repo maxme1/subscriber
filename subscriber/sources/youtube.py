@@ -8,10 +8,10 @@ import requests
 from aiohttp import ClientSession
 
 from ..utils import get_og_tags, url_to_base64
-from .interface import ChannelAdapter, ChannelData, Content, PostUpdate, VisibleError
+from .interface import ChannelData, Content, DomainMatch, PostUpdate, VisibleError
 
 
-class YouTube(ChannelAdapter):
+class YouTube(DomainMatch):
     domain = 'youtube.com'
     CHANNEL_ID_PATTERN = re.compile(r'"browseId":\s*"([^"]+)"')
 

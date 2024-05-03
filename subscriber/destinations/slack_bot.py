@@ -7,6 +7,7 @@ from slack_sdk.web.async_client import AsyncWebClient
 from ..models import Identifier, Post
 from .interface import Destination
 
+
 logger = logging.getLogger(__name__)
 
 

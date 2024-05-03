@@ -11,6 +11,7 @@ from ..models import Identifier, Post
 from ..utils import URL_PATTERN, drop_prefix, storage_resolve
 from .interface import Destination
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -174,8 +175,9 @@ async def fallback(update: Update, context: CallbackContext):
 
 
 async def on_error(update, context: CallbackContext):
-    # raise context.error
-    logger.warning('Update "%s" caused error %s: %s', update, type(context.error).__name__, context.error)
+    logger.error(
+        'Update "%s" caused error %s: %s', update, type(context.error).__name__, context.error, exc_info=context.error
+    )
 
 
 def make_keyboard(channels):

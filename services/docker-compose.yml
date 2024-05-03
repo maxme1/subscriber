@@ -20,4 +20,4 @@ services:
       KAGGLE_KEY: ${KAGGLE_KEY}
 
     command: python main.py
-    restart: on-failure
+      #    restart: on-failure

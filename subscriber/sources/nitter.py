@@ -6,10 +6,10 @@ from urllib.parse import urlparse
 import feedparser
 from aiohttp import ClientSession
 
-from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
+from .interface import ChannelData, Content, DomainMatch, PostUpdate
 
 
-class Twitter(ChannelAdapter):
+class Twitter(DomainMatch):
     domain = 'twitter.com', 'nitter.cz'
 
     GROUP_NAME = re.compile(r'^/(\w+)$', flags=re.IGNORECASE)

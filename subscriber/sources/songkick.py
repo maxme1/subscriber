@@ -7,12 +7,13 @@ from aiohttp import ClientSession
 from lxml import html
 
 from ..utils import url_to_base64
-from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
+from .interface import ChannelData, Content, DomainMatch, PostUpdate
+
 
 logger = logging.getLogger(__name__)
 
 
-class SongKick(ChannelAdapter):
+class SongKick(DomainMatch):
     domain = 'songkick.com'
     add_name = True
 

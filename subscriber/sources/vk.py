@@ -6,10 +6,10 @@ from aiohttp import ClientSession
 from lxml import html
 
 from ..utils import url_to_base64
-from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
+from .interface import ChannelData, Content, DomainMatch, PostUpdate
 
 
-class VK(ChannelAdapter):
+class VK(DomainMatch):
     domain = 'vk.com'
 
     GROUP_NAME = re.compile(r'^/(\w+)$', flags=re.IGNORECASE)

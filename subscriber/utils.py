@@ -1,5 +1,4 @@
 import base64
-import os
 import re
 import tempfile
 from functools import cache
@@ -9,6 +8,9 @@ from typing import Union
 import aiohttp
 import lxml.html
 from tarn import HashKeyStorage
+
+from subscriber.settings import config
+
 
 URL_PATTERN = re.compile(
     r'^(?:http|ftp)s?://'  # http:// or https://
@@ -23,7 +25,7 @@ URL_PATTERN = re.compile(
 
 @cache
 def build_storage() -> HashKeyStorage:
-    return HashKeyStorage(os.environ['STORAGE_PATH'])
+    return HashKeyStorage(config.storage_path)
 
 
 def drop_prefix(x, prefix):
