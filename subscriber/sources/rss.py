@@ -4,8 +4,8 @@ from typing import AsyncIterable
 import feedparser
 from aiohttp import ClientSession
 
-from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
 from ..utils import url_to_base64
+from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
 
 
 class RSS(ChannelAdapter):
