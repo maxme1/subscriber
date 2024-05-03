@@ -11,6 +11,7 @@ async def test_track():
     assert jack == ChannelData(update_url=url, name='jack')
 
 
+@pytest.mark.skip('Nitter was shut down')
 @pytest.mark.asyncio
 async def test_update():
     async with ClientSession() as session:
