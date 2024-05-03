@@ -5,17 +5,21 @@ import feedparser
 from aiohttp import ClientSession
 
 from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
+from ..utils import url_to_base64
 
 
 class RSS(ChannelAdapter):
     @classmethod
     def match(cls, url: str) -> bool:
-        return url.endswith('.xml')
+        feed = feedparser.parse(url)
+        return bool(feed['entries'])
 
     @classmethod
     async def track(cls, url: str) -> ChannelData:
         feed = feedparser.parse(url)['feed']
-        return ChannelData(update_url=url, name=feed['title'], url=url)
+        async with ClientSession() as session:
+            image = await url_to_base64(feed.get('image', {}).get('href'), session)
+        return ChannelData(update_url=url, name=feed['title'], image=image, url=url)
 
     async def update(self, update_url: str, name: str, session: ClientSession) -> AsyncIterable[PostUpdate]:
         async with session.get(update_url) as response:

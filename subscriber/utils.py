@@ -63,7 +63,7 @@ def storage_resolve(key):
     return build_storage().read(lambda x: x, key)
 
 
-async def url_to_base64(url: str, session: aiohttp.ClientSession):
+async def url_to_base64(url: str | None, session: aiohttp.ClientSession) -> str | None:
     if url is None:
         return
 
