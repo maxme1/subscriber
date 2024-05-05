@@ -13,4 +13,4 @@ class Settings(BaseSettings, extra='ignore'):
     db_path: Path = ROOT / 'db.sqlite3'
 
 
-config = Settings(_env_file=ROOT / '.env')
+config = Settings(_env_file=ROOT / 'services/.env')
