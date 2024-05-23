@@ -3,6 +3,7 @@ from typing import AsyncIterable
 
 import feedparser
 from aiohttp import ClientSession
+from lxml import html
 
 from ..utils import url_to_base64
 from .interface import ChannelAdapter, ChannelData, Content, PostUpdate
@@ -26,8 +27,11 @@ class RSS(ChannelAdapter):
             body = await response.read()
 
         for post in reversed(feedparser.parse(BytesIO(body))['entries']):
+            # in case the summary is formatted as html
+            summary = html.fromstring(post['summary']).text_content()
+
             yield PostUpdate(id=post['id'], url=post['link'], content=Content(
-                title=post['title'], description=post['summary'],
+                title=post['title'], description=summary,
             ))
 
     async def scrape(self, post_url: str, session: ClientSession) -> Content:
